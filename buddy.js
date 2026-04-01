@@ -28,6 +28,17 @@ const EYES = ["·", "✦", "×", "◉", "@", "°"]
 const HATS = ["none", "crown", "tophat", "propeller", "halo", "wizard", "beanie", "tinyduck"]
 const STAT_NAMES = ["DEBUGGING", "PATIENCE", "CHAOS", "WISDOM", "SNARK"]
 const STAT_BUDGETS = { common: 5, uncommon: 15, rare: 25, epic: 35, legendary: 50 }
+const STAT_PRIMARY_BASE = 50
+const STAT_PRIMARY_RANGE = 30
+const STAT_SECONDARY_OFFSET = -10
+const STAT_SECONDARY_RANGE = 15
+const STAT_BASE_RANGE = 40
+const SHINY_CHANCE = 0.01
+const HEARTBEAT_MS = 5000
+const DEFAULT_MAX = 10_000_000
+const DEFAULT_COUNT = 3
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
+const HEX64_RE = /^[0-9a-f]{64}$/i
 
 const RARITY_STARS = {
   common: "★", uncommon: "★★", rare: "★★★", epic: "★★★★", legendary: "★★★★★",
@@ -107,13 +118,11 @@ function rollStats(rng, rarity) {
   const primary = pick(rng, STAT_NAMES)
   let secondary = pick(rng, STAT_NAMES)
   while (secondary === primary) secondary = pick(rng, STAT_NAMES)
-  const stats = {}
-  for (const name of STAT_NAMES) {
-    if (name === primary) stats[name] = Math.min(100, budget + 50 + Math.floor(rng() * 30))
-    else if (name === secondary) stats[name] = Math.max(1, budget - 10 + Math.floor(rng() * 15))
-    else stats[name] = budget + Math.floor(rng() * 40)
-  }
-  return stats
+  return Object.fromEntries(STAT_NAMES.map(name => {
+    if (name === primary) return [name, Math.min(100, budget + STAT_PRIMARY_BASE + Math.floor(rng() * STAT_PRIMARY_RANGE))]
+    if (name === secondary) return [name, Math.max(1, budget + STAT_SECONDARY_OFFSET + Math.floor(rng() * STAT_SECONDARY_RANGE))]
+    return [name, budget + Math.floor(rng() * STAT_BASE_RANGE)]
+  }))
 }
 
 function rollCompanion(seed) {
@@ -122,7 +131,7 @@ function rollCompanion(seed) {
   const species = pick(rng, SPECIES)
   const eye = pick(rng, EYES)
   const hat = rarity === "common" ? "none" : pick(rng, HATS)
-  const shiny = rng() < 0.01
+  const shiny = rng() < SHINY_CHANCE
   const stats = rollStats(rng, rarity)
   return { rarity, species, eye, hat, shiny, stats }
 }
@@ -134,15 +143,16 @@ function rollCompanion(seed) {
 const HEX_CHARS = "0123456789abcdef"
 
 function randomUUID() {
-  let s = ""
-  for (let i = 0; i < 32; i++) s += HEX_CHARS[(Math.random() * 16) | 0]
+  const a = new Array(32)
+  for (let i = 0; i < 32; i++) a[i] = HEX_CHARS[(Math.random() * 16) | 0]
+  const s = a.join("")
   return `${s.slice(0, 8)}-${s.slice(8, 12)}-4${s.slice(13, 16)}-${HEX_CHARS[(Math.random() * 4 | 0) + 8]}${s.slice(17, 20)}-${s.slice(20, 32)}`
 }
 
 function randomHex64() {
-  let s = ""
-  for (let i = 0; i < 64; i++) s += HEX_CHARS[(Math.random() * 16) | 0]
-  return s
+  const a = new Array(64)
+  for (let i = 0; i < 64; i++) a[i] = HEX_CHARS[(Math.random() * 16) | 0]
+  return a.join("")
 }
 
 // ── Display ───────────────────────────────────────────────────────────────
@@ -225,7 +235,7 @@ function printCard(seed, buddy, { label } = {}) {
 function findConfig() {
   const customDir = process.env.CLAUDE_CONFIG_DIR
   if (customDir) {
-    const p = path.join(customDir, ".claude.json")
+    const p = path.join(path.resolve(customDir), ".claude.json")
     return fs.existsSync(p) ? p : null
   }
   const p1 = path.join(os.homedir(), ".claude", ".claude.json")
@@ -238,7 +248,12 @@ function findConfig() {
 function readConfig() {
   const p = findConfig()
   if (!p) return null
-  return { path: p, data: JSON.parse(fs.readFileSync(p, "utf-8")) }
+  try {
+    return { path: p, data: JSON.parse(fs.readFileSync(p, "utf-8")) }
+  } catch {
+    console.error(`  Error: Could not parse ${p} — is it valid JSON?`)
+    process.exit(1)
+  }
 }
 
 // Detect which config field is the active seed
@@ -254,9 +269,40 @@ function detectSeedInfo(config) {
 
 // ── CLI ───────────────────────────────────────────────────────────────────
 
+function parsePositiveInt(str, flag) {
+  const v = parseInt(str)
+  if (!Number.isFinite(v) || v <= 0) { console.error(`  ${flag} requires a positive integer`); process.exit(1) }
+  return v
+}
+
+function requireArg(args, i, flag) {
+  const v = args[i]
+  if (!v || v.startsWith("-")) { console.error(`  ${flag} requires an argument`); process.exit(1) }
+  return v
+}
+
+function validateEnumOpts(opts) {
+  if (opts.species && !SPECIES.includes(opts.species)) {
+    console.error(`  Unknown species: ${opts.species}\n  Available: ${SPECIES.join(", ")}`)
+    process.exit(1)
+  }
+  if (opts.rarity && !RARITIES.includes(opts.rarity)) {
+    console.error(`  Unknown rarity: ${opts.rarity}\n  Available: ${RARITIES.join(", ")}`)
+    process.exit(1)
+  }
+  if (opts.eye && !EYES.includes(opts.eye)) {
+    console.error(`  Unknown eye: ${opts.eye}\n  Available: ${EYES.join(" ")}`)
+    process.exit(1)
+  }
+  if (opts.hat && !HATS.includes(opts.hat)) {
+    console.error(`  Unknown hat: ${opts.hat}\n  Available: ${HATS.join(", ")}`)
+    process.exit(1)
+  }
+}
+
 function parseArgs() {
   const args = process.argv.slice(2)
-  const opts = { max: 10_000_000, count: 3 }
+  const opts = { max: DEFAULT_MAX, count: DEFAULT_COUNT }
 
   for (let i = 0; i < args.length; i++) {
     switch (args[i]) {
@@ -265,37 +311,12 @@ function parseArgs() {
       case "--eye":        opts.eye = args[++i]; break
       case "--hat":        opts.hat = args[++i]; break
       case "--shiny":      opts.shiny = true; break
-      case "--min-stats": {
-        const v = parseInt(args[++i])
-        if (!Number.isFinite(v) || v <= 0) { console.error("  --min-stats requires a positive integer"); process.exit(1) }
-        opts.minStats = v
-        break
-      }
-      case "--max": {
-        const v = parseInt(args[++i])
-        if (!Number.isFinite(v) || v <= 0) { console.error("  --max requires a positive integer"); process.exit(1) }
-        opts.max = v
-        break
-      }
-      case "--count": {
-        const v = parseInt(args[++i])
-        if (!Number.isFinite(v) || v <= 0) { console.error("  --count requires a positive integer"); process.exit(1) }
-        opts.count = v
-        break
-      }
-      case "--check": {
-        const v = args[++i]
-        if (!v || v.startsWith("-")) { console.error("  --check requires a seed argument"); process.exit(1) }
-        opts.check = v
-        break
-      }
+      case "--min-stats":  opts.minStats = parsePositiveInt(args[++i], "--min-stats"); break
+      case "--max":        opts.max = parsePositiveInt(args[++i], "--max"); break
+      case "--count":      opts.count = parsePositiveInt(args[++i], "--count"); break
+      case "--check":      opts.check = requireArg(args, ++i, "--check"); break
       case "--current":    opts.current = true; break
-      case "--apply": {
-        const v = args[++i]
-        if (!v || v.startsWith("-")) { console.error("  --apply requires a seed argument"); process.exit(1) }
-        opts.apply = v
-        break
-      }
+      case "--apply":      opts.apply = requireArg(args, ++i, "--apply"); break
       case "--format": {
         const fmt = args[++i]
         if (fmt !== "uuid" && fmt !== "hex") {
@@ -314,24 +335,7 @@ function parseArgs() {
     }
   }
 
-  // Validate enum inputs
-  if (opts.species && !SPECIES.includes(opts.species)) {
-    console.error(`  Unknown species: ${opts.species}\n  Available: ${SPECIES.join(", ")}`)
-    process.exit(1)
-  }
-  if (opts.rarity && !RARITIES.includes(opts.rarity)) {
-    console.error(`  Unknown rarity: ${opts.rarity}\n  Available: ${RARITIES.join(", ")}`)
-    process.exit(1)
-  }
-  if (opts.eye && !EYES.includes(opts.eye)) {
-    console.error(`  Unknown eye: ${opts.eye}\n  Available: ${EYES.join(" ")}`)
-    process.exit(1)
-  }
-  if (opts.hat && !HATS.includes(opts.hat)) {
-    console.error(`  Unknown hat: ${opts.hat}\n  Available: ${HATS.join(", ")}`)
-    process.exit(1)
-  }
-
+  validateEnumOpts(opts)
   return opts
 }
 
@@ -404,31 +408,13 @@ function modeCurrent() {
   }
 }
 
-function modeApply(seed) {
-  const config = readConfig()
-  if (!config) {
-    console.error("  No .claude.json found")
-    process.exit(1)
-  }
-
-  const info = detectSeedInfo(config)
-  const buddy = rollCompanion(seed)
-  const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
-  const HEX64_RE = /^[0-9a-f]{64}$/i
+function validateSeedFormat(seed, info) {
   const isUuid = UUID_RE.test(seed)
-
   if (!isUuid && !HEX64_RE.test(seed)) {
     console.error(`  Error: Seed must be a UUID (xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx)`)
     console.error(`  or a 64-char hex string. Got: ${seed}`)
     process.exit(1)
   }
-
-  console.log(`\n  ${BOLD}Applying to:${RESET} ${config.path}`)
-  console.log(`  ${BOLD}Current seed:${RESET} ${info.value} (${info.source})`)
-  console.log(`  ${BOLD}New seed:${RESET}     ${seed}`)
-  printCard(seed, buddy)
-
-  // Validate format matches current auth method
   if (info.format === "uuid" && !isUuid) {
     console.error(`  Error: Your config uses ${info.source} (UUID format) but you provided a hex seed.`)
     console.error(`  Use --format uuid when searching, or provide a UUID-format seed.`)
@@ -439,56 +425,76 @@ function modeApply(seed) {
     console.error(`  Use --format hex when searching, or provide a hex-format seed.`)
     process.exit(1)
   }
+}
 
-  // Backup
+function writeConfigAtomically(configPath, data) {
+  const tmpPath = configPath + ".tmp-" + Date.now()
+  fs.writeFileSync(tmpPath, JSON.stringify(data, null, 2) + "\n")
+  fs.renameSync(tmpPath, configPath)
+}
+
+function modeApply(seed) {
+  const config = readConfig()
+  if (!config) {
+    console.error("  No .claude.json found")
+    process.exit(1)
+  }
+
+  const info = detectSeedInfo(config)
+  validateSeedFormat(seed, info)
+
+  const buddy = rollCompanion(seed)
+  console.log(`\n  ${BOLD}Applying to:${RESET} ${config.path}`)
+  console.log(`  ${BOLD}Current seed:${RESET} ${info.value} (${info.source})`)
+  console.log(`  ${BOLD}New seed:${RESET}     ${seed}`)
+  printCard(seed, buddy)
+
   const backupPath = config.path + ".backup-" + Date.now()
   fs.copyFileSync(config.path, backupPath)
   console.log(`  ${DIM}Backup saved: ${backupPath}${RESET}`)
 
-  const { data } = config
+  const seedUpdate = info.source === "oauthAccount.accountUuid"
+    ? { oauthAccount: { ...config.data.oauthAccount, accountUuid: seed } }
+    : { userID: seed }
+  const { companion: _, ...rest } = config.data
+  const newData = { ...rest, ...seedUpdate }
 
-  // Apply to the field that detectSeedInfo identified as active
-  if (info.source === "oauthAccount.accountUuid") {
-    data.oauthAccount.accountUuid = seed
-    console.log(`  ${DIM}Updated: oauthAccount.accountUuid${RESET}`)
-  } else {
-    data.userID = seed
-    console.log(`  ${DIM}Updated: userID${RESET}`)
-  }
-
-  // Remove cached companion so /buddy hatch regenerates
-  delete data.companion
-
-  fs.writeFileSync(config.path, JSON.stringify(data, null, 2) + "\n")
+  const field = info.source === "oauthAccount.accountUuid" ? "oauthAccount.accountUuid" : "userID"
+  console.log(`  ${DIM}Updated: ${field}${RESET}`)
+  writeConfigAtomically(config.path, newData)
   console.log(`\n  ${BOLD}Done!${RESET} Restart Claude Code and run ${BOLD}/buddy hatch${RESET}`)
   console.log(`  ${DIM}(name and personality are LLM-generated — they'll be unique each time)${RESET}`)
 }
 
-function modeSearch(opts) {
-  const filters = []
-  if (opts.species) filters.push(`species=${opts.species}`)
-  if (opts.rarity) filters.push(`rarity=${opts.rarity}`)
-  if (opts.eye) filters.push(`eye=${opts.eye}`)
-  if (opts.hat) filters.push(`hat=${opts.hat}`)
-  if (opts.shiny) filters.push("shiny=true")
-  if (opts.minStats) filters.push(`all stats>=${opts.minStats}`)
+function describeFilters(opts) {
+  const parts = []
+  if (opts.species) parts.push(`species=${opts.species}`)
+  if (opts.rarity) parts.push(`rarity=${opts.rarity}`)
+  if (opts.eye) parts.push(`eye=${opts.eye}`)
+  if (opts.hat) parts.push(`hat=${opts.hat}`)
+  if (opts.shiny) parts.push("shiny=true")
+  if (opts.minStats) parts.push(`all stats>=${opts.minStats}`)
+  return parts
+}
 
+function detectSearchFormat(opts) {
+  if (opts.format) return opts.format
+  const config = readConfig()
+  const info = config ? detectSeedInfo(config) : { format: "uuid" }
+  if (config) {
+    console.log(`  ${DIM}Detected auth: ${info.source} → generating ${info.format} seeds${RESET}`)
+  }
+  return info.format
+}
+
+function modeSearch(opts) {
+  const filters = describeFilters(opts)
   if (filters.length === 0) {
     console.error("  No filters specified. Use --help to see options.")
     process.exit(1)
   }
 
-  // Determine seed format
-  let format = opts.format
-  if (!format) {
-    const config = readConfig()
-    const info = config ? detectSeedInfo(config) : { format: "uuid" }
-    format = info.format
-    if (config) {
-      console.log(`  ${DIM}Detected auth: ${info.source} → generating ${format} seeds${RESET}`)
-    }
-  }
-
+  const format = detectSearchFormat(opts)
   const generateSeed = format === "hex" ? randomHex64 : randomUUID
 
   console.log(`\n  ${BOLD}buddy${RESET} — searching ${format} space`)
@@ -501,9 +507,8 @@ function modeSearch(opts) {
   let lastReport = startTime
 
   for (let i = 0; i < opts.max; i++) {
-    // Progress heartbeat every 5s — runs on every iteration including misses
     const now = performance.now()
-    if (now - lastReport > 5000) {
+    if (now - lastReport > HEARTBEAT_MS) {
       const rate = Math.round((i + 1) / ((now - startTime) / 1000))
       console.log(`  ${DIM}... ${(i + 1).toLocaleString()} checked (${rate.toLocaleString()}/s)${RESET}`)
       lastReport = now
@@ -525,7 +530,7 @@ function modeSearch(opts) {
     const hat = rarity === "common" ? "none" : pick(rng, HATS)
     if (opts.hat && hat !== opts.hat) continue
 
-    const shiny = rng() < 0.01
+    const shiny = rng() < SHINY_CHANCE
     if (opts.shiny && !shiny) continue
 
     const stats = rollStats(rng, rarity)
@@ -604,68 +609,29 @@ function confirm(msg) {
   return raw.toLowerCase() === "y" || raw.toLowerCase() === "yes"
 }
 
-function modeInteractive() {
-  console.log(`\n  ${BOLD}🥚 Buddy Generator${RESET}`)
-
-  // Show current companion first
-  const config = readConfig()
-  if (config) {
-    const info = detectSeedInfo(config)
-    const current = rollCompanion(info.value)
-    console.log(`\n  ${DIM}Current: ${current.rarity} ${current.species}${current.shiny ? " (shiny)" : ""} via ${info.source}${RESET}`)
-  }
-
+function gatherTraits() {
   const want = {}
-
-  // Rarity
   const rarityExtras = { common: "60%", uncommon: "25%", rare: "10%", epic: "4%", legendary: "1%" }
   const rarity = selectOne("Rarity:", RARITIES, { extras: rarityExtras })
   if (rarity) want.rarity = rarity
 
-  // Species
   const species = selectOne("Species:", SPECIES, { columns: 3 })
   if (species) want.species = species
 
-  // Shiny
   if (confirm("Shiny? (1% chance)")) want.shiny = true
 
-  // Hat (only for non-common)
   if (rarity && rarity !== "common") {
     const hat = selectOne("Hat:", HATS.filter(h => h !== "none"))
     if (hat) want.hat = hat
   }
 
-  // Eye
   const eye = selectOne("Eye:", EYES)
   if (eye) want.eye = eye
 
-  // Summary
-  const parts = []
-  if (want.rarity) parts.push(RARITY_COLORS[want.rarity] + want.rarity + RESET)
-  if (want.shiny) parts.push(`${SHINY_FG}shiny${RESET}`)
-  if (want.species) parts.push(want.species)
-  if (want.hat) parts.push(`hat:${want.hat}`)
-  if (want.eye) parts.push(`eye:${want.eye}`)
+  return want
+}
 
-  if (parts.length === 0) {
-    console.log(`\n  ${DIM}No traits selected — nothing to search for.${RESET}`)
-    process.exit(0)
-  }
-
-  console.log(`\n  ${BOLD}Target:${RESET} ${parts.join("  ")}`)
-
-  if (!confirm("Start searching?")) {
-    console.log(`  ${DIM}Cancelled.${RESET}`)
-    process.exit(0)
-  }
-
-  // Build opts and delegate to search
-  const searchOpts = { ...want, max: 10_000_000, count: 3 }
-  const results = modeSearch(searchOpts)
-
-  if (results.length === 0) return
-
-  // Let user pick which one to apply
+function pickAndApplyResult(results) {
   let chosen = null
   if (results.length === 1) {
     if (confirm("Apply this companion?")) chosen = results[0]
@@ -692,6 +658,41 @@ function modeInteractive() {
   }
 
   modeApply(chosen.seed)
+}
+
+function modeInteractive() {
+  console.log(`\n  ${BOLD}🥚 Buddy Generator${RESET}`)
+
+  const config = readConfig()
+  if (config) {
+    const info = detectSeedInfo(config)
+    const current = rollCompanion(info.value)
+    console.log(`\n  ${DIM}Current: ${current.rarity} ${current.species}${current.shiny ? " (shiny)" : ""} via ${info.source}${RESET}`)
+  }
+
+  const want = gatherTraits()
+
+  const parts = []
+  if (want.rarity) parts.push(RARITY_COLORS[want.rarity] + want.rarity + RESET)
+  if (want.shiny) parts.push(`${SHINY_FG}shiny${RESET}`)
+  if (want.species) parts.push(want.species)
+  if (want.hat) parts.push(`hat:${want.hat}`)
+  if (want.eye) parts.push(`eye:${want.eye}`)
+
+  if (parts.length === 0) {
+    console.log(`\n  ${DIM}No traits selected — nothing to search for.${RESET}`)
+    process.exit(0)
+  }
+
+  console.log(`\n  ${BOLD}Target:${RESET} ${parts.join("  ")}`)
+
+  if (!confirm("Start searching?")) {
+    console.log(`  ${DIM}Cancelled.${RESET}`)
+    process.exit(0)
+  }
+
+  const results = modeSearch({ ...want, max: DEFAULT_MAX, count: DEFAULT_COUNT })
+  if (results.length > 0) pickAndApplyResult(results)
 }
 
 // ── Main ──────────────────────────────────────────────────────────────────
