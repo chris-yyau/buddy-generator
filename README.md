@@ -1,6 +1,6 @@
 # Buddy Generator
 
-[English](#buddy-generator) | [中文](#buddy-generator-中文)
+[English](#buddy-generator) | [繁體中文](#buddy-generator-中文)
 
 Re-roll your [Claude Code](https://docs.anthropic.com/en/docs/claude-code) `/buddy` companion pet. Choose the species, rarity, hat, eyes, and shininess you want — the tool finds a seed that produces it and writes it to your config.
 
@@ -189,29 +189,29 @@ MIT
 
 # Buddy Generator 中文
 
-重新抽卡你的 [Claude Code](https://docs.anthropic.com/en/docs/claude-code) `/buddy` 伙伴宠物。指定你想要的物种、稀有度、帽子、眼睛和闪光属性——工具会找到对应的种子值并写入你的配置。
+重新抽卡你的 [Claude Code](https://docs.anthropic.com/en/docs/claude-code) `/buddy` 夥伴寵物。指定你想要的物種、稀有度、帽子、眼睛和閃光屬性——工具會找到對應的種子值並寫入你的配置。
 
-## 什么是 `/buddy`？
+## 什麼是 `/buddy`？
 
-Claude Code 2.1.89 版本引入了 `/buddy`——一个住在你终端里的虚拟伙伴。伙伴的所有特征（物种、稀有度、属性值、帽子、眼睛、闪光）都由你的账户身份确定性地派生，并非随机。这个工具通过寻找不同的种子值来重新抽卡。
+Claude Code 2.1.89 版本引入了 `/buddy`——一個住在你終端裡的虛擬夥伴。夥伴的所有特徵（物種、稀有度、屬性值、帽子、眼睛、閃光）都由你的帳戶身份確定性地派生，並非隨機。這個工具透過尋找不同的種子值來重新抽卡。
 
-## 快速开始
+## 快速開始
 
-**需要 [Bun](https://bun.sh)**——Claude Code 内部使用 `Bun.hash`（wyhash 算法）。Node.js 会产生错误的结果。
+**需要 [Bun](https://bun.sh)**——Claude Code 內部使用 `Bun.hash`（wyhash 演算法）。Node.js 會產生錯誤的結果。
 
 ```bash
-# 安装 Bun
+# 安裝 Bun
 curl -fsSL https://bun.sh/install | bash
 
-# 获取工具
+# 取得工具
 git clone https://github.com/chris-yyau/buddy-generator.git
 cd buddy-generator
 
-# 运行交互模式
+# 執行互動模式
 bun buddy.js
 ```
 
-交互模式会引导你选择特征、搜索匹配的种子，并自动应用：
+互動模式會引導你選擇特徵、搜尋匹配的種子，並自動套用：
 
 ```
   🥚 Buddy Generator
@@ -258,25 +258,25 @@ bun buddy.js
   > y
 ```
 
-搜索完成后，选择你最喜欢的结果，工具会自动应用。然后重启 Claude Code 并运行 `/buddy hatch`。
+搜尋完成後，選擇你最喜歡的結果，工具會自動套用。然後重啟 Claude Code 並執行 `/buddy hatch`。
 
 ## 其他模式
 
 ```bash
-# CLI 搜索——用参数指定特征
+# CLI 搜尋——用參數指定特徵
 bun buddy.js --species dragon --rarity legendary --shiny
 
-# 查看当前伙伴和配置中的种子字段
+# 查看當前夥伴和配置中的種子欄位
 bun buddy.js --current
 
-# 检查任意种子会产生什么
+# 檢查任意種子會產生什麼
 bun buddy.js --check 9ab738bf-fb82-40fb-917d-0020259c8408
 
-# 手动应用种子（会先备份配置）
+# 手動套用種子（會先備份配置）
 bun buddy.js --apply f853b71e-3774-4bc7-b4a8-4cc0ed266f9f
 ```
 
-`--current` 输出示例：
+`--current` 輸出範例：
 
 ```
   Config:     ~/.claude.json
@@ -304,70 +304,70 @@ bun buddy.js --apply f853b71e-3774-4bc7-b4a8-4cc0ed266f9f
   └────────────────────────────────────────┘
 ```
 
-## 运作原理
+## 運作原理
 
-Claude Code 从单一种子字符串确定性地派生所有伙伴特征：
+Claude Code 從單一種子字串確定性地派生所有夥伴特徵：
 
 ```
-种子 + "friend-2026-401" → Bun.hash (wyhash) → SplitMix32 PRNG → 特征
+種子 + "friend-2026-401" → Bun.hash (wyhash) → SplitMix32 PRNG → 特徵
 ```
 
-种子从你的 `.claude.json` 配置文件中读取：
+種子從你的 `.claude.json` 配置檔中讀取：
 
 ```
 oauthAccount.accountUuid ?? userID ?? "anon"
 ```
 
-| 认证方式 | 种子字段 | 格式 |
+| 認證方式 | 種子欄位 | 格式 |
 |---|---|---|
-| OAuth 登录（大多数用户） | `oauthAccount.accountUuid` | UUID (`xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx`) |
-| API 密钥 | `userID` | 64 位十六进制字符串 |
-| 都没有 | `"anon"` | 字面字符串 |
+| OAuth 登入（大多數使用者） | `oauthAccount.accountUuid` | UUID (`xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx`) |
+| API 金鑰 | `userID` | 64 位十六進位字串 |
+| 都沒有 | `"anon"` | 字面字串 |
 
-工具会自动检测你的配置使用哪个字段，并以匹配的格式生成种子。只有 `name`（名字）和 `personality`（性格）来自 `/buddy hatch` 时的 LLM 调用——其他一切都是种子的纯函数。
+工具會自動偵測你的配置使用哪個欄位，並以匹配的格式產生種子。只有 `name`（名字）和 `personality`（性格）來自 `/buddy hatch` 時的 LLM 呼叫——其他一切都是種子的純函數。
 
-## 可用特征
+## 可用特徵
 
-| 特征 | 值 |
+| 特徵 | 值 |
 |---|---|
-| **物种**（18 种） | duck（鸭）、goose（鹅）、blob（果冻）、cat（猫）、dragon（龙）、octopus（章鱼）、owl（猫头鹰）、penguin（企鹅）、turtle（龟）、snail（蜗牛）、ghost（幽灵）、axolotl（六角恐龙）、capybara（水豚）、cactus（仙人掌）、robot（机器人）、rabbit（兔）、mushroom（蘑菇）、chonk（胖墩） |
-| **稀有度** | common 普通（60%）、uncommon 非凡（25%）、rare 稀有（10%）、epic 史诗（4%）、legendary 传说（1%） |
-| **闪光** | 1% 概率，与稀有度独立 |
+| **物種**（18 種） | duck（鴨）、goose（鵝）、blob（果凍）、cat（貓）、dragon（龍）、octopus（章魚）、owl（貓頭鷹）、penguin（企鵝）、turtle（龜）、snail（蝸牛）、ghost（幽靈）、axolotl（六角恐龍）、capybara（水豚）、cactus（仙人掌）、robot（機器人）、rabbit（兔）、mushroom（蘑菇）、chonk（胖墩） |
+| **稀有度** | common 普通（60%）、uncommon 非凡（25%）、rare 稀有（10%）、epic 史詩（4%）、legendary 傳說（1%） |
+| **閃光** | 1% 機率，與稀有度獨立 |
 | **眼睛** | `·` `✦` `×` `◉` `@` `°` |
-| **帽子** | crown（皇冠）、tophat（礼帽）、propeller（螺旋桨）、halo（光环）、wizard（巫师帽）、beanie（毛线帽）、tinyduck（小鸭子）。common 稀有度永远没有帽子 |
-| **属性** | DEBUGGING（调试）、PATIENCE（耐心）、CHAOS（混乱）、WISDOM（智慧）、SNARK（毒舌）——属性点数随稀有度提升 |
+| **帽子** | crown（皇冠）、tophat（禮帽）、propeller（螺旋槳）、halo（光環）、wizard（巫師帽）、beanie（毛線帽）、tinyduck（小鴨子）。common 稀有度永遠沒有帽子 |
+| **屬性** | DEBUGGING（除錯）、PATIENCE（耐心）、CHAOS（混亂）、WISDOM（智慧）、SNARK（毒舌）——屬性點數隨稀有度提升 |
 
-## CLI 参考
+## CLI 參考
 
 ```
-bun buddy.js [选项]
+bun buddy.js [選項]
 
 模式：
-  （无参数）             交互模式——菜单、搜索、选择、应用
-  --check <seed>       查看一个种子值会产生什么特征
-  --current            查看当前伙伴和种子来源
-  --apply <seed>       将种子写入配置（会先备份）
+  （無參數）             互動模式——選單、搜尋、選擇、套用
+  --check <seed>       查看一個種子值會產生什麼特徵
+  --current            查看當前夥伴和種子來源
+  --apply <seed>       將種子寫入配置（會先備份）
 
-筛选：
-  --species <name>     目标物种
-  --rarity <tier>      目标稀有度（精确匹配）
-  --eye <char>         目标眼睛样式
-  --hat <name>         目标帽子类型
-  --shiny              要求闪光
-  --min-stats <n>      要求所有属性 >= n
+篩選：
+  --species <name>     目標物種
+  --rarity <tier>      目標稀有度（精確匹配）
+  --eye <char>         目標眼睛樣式
+  --hat <name>         目標帽子類型
+  --shiny              要求閃光
+  --min-stats <n>      要求所有屬性 >= n
 
-选项：
-  --format uuid|hex    覆盖种子格式（默认：自动检测）
-  --max <n>            最大搜索迭代次数（默认：10,000,000）
-  --count <n>          要找到的结果数量（默认：3）
+選項：
+  --format uuid|hex    覆蓋種子格式（預設：自動偵測）
+  --max <n>            最大搜尋迭代次數（預設：10,000,000）
+  --count <n>          要找到的結果數量（預設：3）
 ```
 
-## 注意事项
+## 注意事項
 
-- **认证刷新**：Claude Code 在刷新令牌时可能会覆盖 `accountUuid`。如果你的伙伴恢复原样，需要重新应用种子。
-- **名字和性格**：这些是 `/buddy hatch` 时由 LLM 生成的——种子只控制物种、稀有度、属性、帽子、眼睛和闪光。
-- **版本**：基于 Claude Code 2.1.89 逆向工程。盐值或算法可能在未来版本中改变。
+- **認證刷新**：Claude Code 在刷新令牌時可能會覆寫 `accountUuid`。如果你的夥伴恢復原樣，需要重新套用種子。
+- **名字和性格**：這些是 `/buddy hatch` 時由 LLM 產生的——種子只控制物種、稀有度、屬性、帽子、眼睛和閃光。
+- **版本**：基於 Claude Code 2.1.89 逆向工程。鹽值或演算法可能在未來版本中改變。
 
-## 许可证
+## 許可證
 
 MIT
