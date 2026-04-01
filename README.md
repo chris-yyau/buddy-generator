@@ -1,105 +1,152 @@
 # Buddy Generator
 
-Re-roll your Claude Code `/buddy` companion. Pick what you want, get a seed, apply it.
+Re-roll your [Claude Code](https://docs.anthropic.com/en/docs/claude-code) `/buddy` companion pet. Choose the species, rarity, hat, eyes, and shininess you want — the tool finds a seed that produces it and writes it to your config.
+
+## What is `/buddy`?
+
+Claude Code 2.1.89 introduced `/buddy` — a virtual companion that lives in your terminal. Your companion's traits (species, rarity, stats, hat, eyes, shiny) are deterministically derived from your account identity, not random. This tool lets you re-roll those traits by finding a different seed value.
+
+## Quick start
+
+**Requires [Bun](https://bun.sh)** — Claude Code uses `Bun.hash` (wyhash) internally. Node.js will produce wrong results.
+
+```bash
+# Install Bun
+curl -fsSL https://bun.sh/install | bash
+
+# Get the tool
+git clone https://github.com/chris-yyau/buddy-generator.git
+cd buddy-generator
+
+# Run interactive mode
+bun buddy.js
+```
+
+The interactive mode walks you through selecting traits, searches for a matching seed, and applies it:
 
 ```
   🥚 Buddy Generator
 
+  Current: legendary dragon (shiny) via oauthAccount.accountUuid
+
   Rarity:
-     1. common    (60%)    2. uncommon  (25%)
-     3. rare      (10%)    4. epic      (4%)
+     0. any
+     1. common    (60%)
+     2. uncommon  (25%)
+     3. rare      (10%)
+     4. epic      (4%)
      5. legendary (1%)
   > 5
 
   Species:
-     1. duck       2. goose      3. blob       4. cat
-     5. dragon     6. octopus    7. owl        8. penguin
-     ...
+     0. any
+     1. duck          2. goose         3. blob
+     4. cat           5. dragon        6. octopus
+     7. owl           8. penguin       9. turtle
+    10. snail        11. ghost        12. axolotl
+    13. capybara     14. cactus       15. robot
+    16. rabbit       17. mushroom     18. chonk
   > 5
 
-  Shiny? (1% chance) [y/N] > y
+  Shiny? (1% chance) [y/N]
+  > y
 
-  Searching...
+  Hat:
+     0. any
+     1. crown
+     2. tophat
+     ...
+  > 0
 
-  Match #1 after 108,263 attempts (0.0s)
-  ┌────────────────────────────────────────┐
-  │ ★★★★★ LEGENDARY         DRAGON        │
-  │               (   )                    │
-  │             /^\  /^\                   │
-  │            <  ✦  ✦  >                  │
-  │            (   ~~   )                  │
-  │             `-vvvv-´                   │
-  │  ✨ SHINY ✨                            │
-  │  DEBUGGING  █████░░░░░  48             │
-  │  PATIENCE   █████████░  89             │
-  │  WISDOM     ██████████ 100             │
-  └────────────────────────────────────────┘
+  Eye:
+     0. any
+     ...
+  > 0
 
-  Which one do you want?
-     1. legendary dragon shiny hat:halo eye:✦
-     2. legendary dragon shiny hat:crown eye:°
-     3. legendary dragon shiny hat:wizard eye:×
-     0. none (exit)
-  > 1
+  Target: legendary  shiny  dragon
 
-  Done! Restart Claude Code and run /buddy hatch
+  Start searching? [y/N]
+  > y
 ```
 
-## Install
+After the search completes, you pick your favorite result and the tool applies it automatically. Then restart Claude Code and run `/buddy hatch`.
 
-Requires [Bun](https://bun.sh) — the same runtime Claude Code uses. Node.js produces wrong results.
-
-```bash
-curl -fsSL https://bun.sh/install | bash
-```
-
-## Usage
+## Other modes
 
 ```bash
-# Interactive — walk through menus, pick your favorite, auto-apply
-bun buddy.js
-
-# CLI — specify traits directly
+# CLI search — specify traits as flags
 bun buddy.js --species dragon --rarity legendary --shiny
 
-# Inspect what you currently have
+# See your current companion and which config field is the seed
 bun buddy.js --current
 
 # Check what any seed produces
-bun buddy.js --check <uuid-or-hex>
+bun buddy.js --check 9ab738bf-fb82-40fb-917d-0020259c8408
 
-# Apply a seed from a previous search
-bun buddy.js --apply <seed>
+# Manually apply a seed (backs up your config first)
+bun buddy.js --apply f853b71e-3774-4bc7-b4a8-4cc0ed266f9f
 ```
 
-After applying, restart Claude Code and run `/buddy hatch`.
+Example `--current` output:
+
+```
+  Config:     ~/.claude.json
+  Seed field: oauthAccount.accountUuid
+  Seed value: 9ab738bf-fb82-40fb-917d-0020259c8408
+  Format:     uuid
+  Name:       Picklevein
+
+  ┌────────────────────────────────────────┐
+  │ ★★★★★ LEGENDARY         DRAGON        │
+  │                                        │
+  │                \^^^/                   │
+  │               /^\  /^\                 │
+  │              <  ◉  ◉  >                │
+  │              (   ~~   )                │
+  │               `-vvvv-´                 │
+  │                                        │
+  │  ✨ SHINY ✨                            │
+  │                                        │
+  │  DEBUGGING  █████████░  87             │
+  │  PATIENCE   ████░░░░░░  44             │
+  │  CHAOS      ████████░░  76             │
+  │  WISDOM     ██████████ 100             │
+  │  SNARK      ████████░░  78             │
+  └────────────────────────────────────────┘
+```
 
 ## How it works
 
-Claude Code derives companion traits (species, rarity, stats, shiny, hat, eyes) deterministically from a seed string. Only the name and personality come from an LLM call during hatching.
+Claude Code derives all companion traits deterministically from a single seed string:
 
 ```
-seed + "friend-2026-401"  →  Bun.hash (wyhash)  →  SplitMix32 PRNG  →  traits
+seed + "friend-2026-401" → Bun.hash (wyhash) → SplitMix32 PRNG → traits
 ```
 
-The seed is read from your config at runtime:
+The seed is read from your `.claude.json` config:
 
 ```
-oauthAccount.accountUuid  ??  userID  ??  "anon"
+oauthAccount.accountUuid ?? userID ?? "anon"
 ```
 
-Most users authenticate via OAuth, so the seed is `accountUuid` (a UUID). API-key users fall back to `userID` (a 64-char hex string). This tool detects which one you have and generates seeds in the matching format.
+| Auth method | Seed field | Format |
+|---|---|---|
+| OAuth login (most users) | `oauthAccount.accountUuid` | UUID (`xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx`) |
+| API key | `userID` | 64-char hex string |
+| Neither | `"anon"` | literal string |
 
-## Traits
+The tool auto-detects which field your config uses and generates seeds in the matching format. Only `name` and `personality` come from an LLM call during `/buddy hatch` — everything else is a pure function of the seed.
 
-| | Options |
+## Available traits
+
+| Trait | Values |
 |---|---|
-| **Species** | duck, goose, blob, cat, dragon, octopus, owl, penguin, turtle, snail, ghost, axolotl, capybara, cactus, robot, rabbit, mushroom, chonk |
-| **Rarity** | common 60%, uncommon 25%, rare 10%, epic 4%, legendary 1% |
-| **Shiny** | 1% independent of rarity |
+| **Species** (18) | duck, goose, blob, cat, dragon, octopus, owl, penguin, turtle, snail, ghost, axolotl, capybara, cactus, robot, rabbit, mushroom, chonk |
+| **Rarity** | common (60%), uncommon (25%), rare (10%), epic (4%), legendary (1%) |
+| **Shiny** | 1% chance, independent of rarity |
 | **Eyes** | `·` `✦` `×` `◉` `@` `°` |
-| **Hats** | crown, tophat, propeller, halo, wizard, beanie, tinyduck (common = none) |
-| **Stats** | DEBUGGING, PATIENCE, CHAOS, WISDOM, SNARK |
+| **Hats** | crown, tophat, propeller, halo, wizard, beanie, tinyduck (common rarity always has no hat) |
+| **Stats** | DEBUGGING, PATIENCE, CHAOS, WISDOM, SNARK — stat budget scales with rarity |
 
 ## CLI reference
 
@@ -107,29 +154,30 @@ Most users authenticate via OAuth, so the seed is `accountUuid` (a UUID). API-ke
 bun buddy.js [options]
 
 Modes:
-  (no flags)           Interactive — menus + auto-apply
-  --check <seed>       Show traits for a seed
-  --current            Show your current companion
-  --apply <seed>       Write seed to config (backs up first)
+  (no flags)           Interactive — menus, search, pick, apply
+  --check <seed>       Show what traits a seed value produces
+  --current            Show your current companion and seed source
+  --apply <seed>       Write a seed to your config (backs up first)
 
-Filters (for non-interactive search):
-  --species <name>     Filter by species
-  --rarity <tier>      Filter by exact rarity
-  --eye <char>         Filter by eye style
-  --hat <name>         Filter by hat
+Filters:
+  --species <name>     Target species
+  --rarity <tier>      Target rarity (exact match)
+  --eye <char>         Target eye style
+  --hat <name>         Target hat type
   --shiny              Require shiny
+  --min-stats <n>      Require ALL stats >= n
 
 Options:
-  --format uuid|hex    Override seed format (default: auto-detect)
-  --max <n>            Max search iterations (default: 10M)
-  --count <n>          Results to find (default: 3)
+  --format uuid|hex    Override seed format (default: auto-detect from config)
+  --max <n>            Max search iterations (default: 10,000,000)
+  --count <n>          Number of results to find (default: 3)
 ```
 
 ## Notes
 
 - **Auth refresh**: Claude Code may overwrite `accountUuid` on token renewal. Re-apply if your companion reverts.
-- **Name/personality**: LLM-generated during `/buddy hatch` — not controlled by the seed.
-- **Tested on**: Claude Code 2.1.89. Salt or algorithm may change in future versions.
+- **Name & personality**: These are LLM-generated during `/buddy hatch` — the seed only controls species, rarity, stats, hat, eyes, and shiny.
+- **Version**: Reverse-engineered from Claude Code 2.1.89. The salt or algorithm may change in future versions.
 
 ## License
 
