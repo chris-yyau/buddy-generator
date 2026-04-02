@@ -614,12 +614,16 @@ function gatherTraits() {
   return want
 }
 
+// Returns true if the user wants to reroll, false if done (applied or exited).
 function pickAndApplyResult(results) {
-  if (results.length === 0) return
+  if (results.length === 0) return false
 
   let chosen = null
   if (results.length === 1) {
-    if (confirm("Apply this companion?")) chosen = results[0]
+    console.log(`\n  Apply this companion? [y/N/r=reroll]`)
+    const raw = prompt(`  ${DIM}>${RESET} `).toLowerCase()
+    if (raw === "r" || raw === "reroll") return true
+    if (raw === "y" || raw === "yes") chosen = results[0]
   } else {
     console.log(`\n  ${BOLD}Which one do you want?${RESET}`)
     for (let i = 0; i < results.length; i++) {
@@ -631,18 +635,21 @@ function pickAndApplyResult(results) {
       console.log(`    ${DIM}${i + 1}.${RESET} ${traits.join(" ")}  ${DIM}${r.seed.slice(0, 18)}...${RESET}`)
     }
     console.log(`    ${DIM}0.${RESET} none (exit)`)
+    console.log(`    ${DIM}r.${RESET} reroll`)
 
-    const raw = prompt(`  ${DIM}>${RESET} `)
+    const raw = prompt(`  ${DIM}>${RESET} `).toLowerCase()
+    if (raw === "r" || raw === "reroll") return true
     const n = parseInt(raw)
     if (n >= 1 && n <= results.length) chosen = results[n - 1]
   }
 
   if (!chosen) {
     console.log(`  ${DIM}No changes made.${RESET}`)
-    return
+    return false
   }
 
   modeApply(chosen.seed)
+  return false
 }
 
 function modeInteractive() {
@@ -676,8 +683,11 @@ function modeInteractive() {
     process.exit(0)
   }
 
-  const results = modeSearch({ ...want, max: DEFAULT_MAX, count: DEFAULT_COUNT })
-  if (results.length > 0) pickAndApplyResult(results)
+  while (true) {
+    const results = modeSearch({ ...want, max: DEFAULT_MAX, count: DEFAULT_COUNT })
+    const reroll = pickAndApplyResult(results)
+    if (!reroll) break
+  }
 }
 
 // ── Main ──────────────────────────────────────────────────────────────────
