@@ -86,7 +86,7 @@ bun buddy.js --current
 bun buddy.js --apply f853b71e-3774-4bc7-b4a8-4cc0ed266f9f
 ```
 
-Example `--current` output (after applying a seed — both fields have the same value):
+Example `--current` output:
 
 ```
   Config:     ~/.claude.json (or ~/.claude/.claude.json)
@@ -116,36 +116,9 @@ Example `--current` output (after applying a seed — both fields have the same 
   │  WISDOM      ████████░░  78            │
   │  SNARK       ██████░░░░  55            │
   └────────────────────────────────────────┘
-
-  Seed field: userID
-  Seed value: 9ab738bf-fb82-40fb-917d-0020259c8408
-  Format:     uuid
-
-  from userID:
-  seed: 9ab738bf-fb82-40fb-917d-0020259c8408
-  ┌────────────────────────────────────────┐
-  │ ★★★★★ LEGENDARY         DRAGON        │
-  │                                        │
-  │              \^^^/                      │
-  │            /^\  /^\                     │
-  │           <  ✦  ✦  >                   │
-  │           (   ~~   )                    │
-  │            `-vvvv-´                     │
-  │                                        │
-  │  ✨ SHINY ✨                            │
-  │                                        │
-  │  DEBUGGING   █████████░  87            │
-  │  PATIENCE    ██████░░░░  62            │
-  │  CHAOS       █████████░  91            │
-  │  WISDOM      ████████░░  78            │
-  │  SNARK       ██████░░░░  55            │
-  └────────────────────────────────────────┘
-
-  Multiple seeds found. Claude Code uses: accountUuid (OAuth) > userID > "anon"
-  Compare with /buddy output to see which seed your version uses.
 ```
 
-Both cards show the same companion because `--apply` writes the seed to both config fields. If only one seed exists, a single card is shown.
+If your config has both `accountUuid` and `userID`, a card is shown for each. After `--apply`, both fields have the same value so the cards will be identical.
 
 ## How it works
 
@@ -305,7 +278,7 @@ bun buddy.js --current
 bun buddy.js --apply f853b71e-3774-4bc7-b4a8-4cc0ed266f9f
 ```
 
-`--current` 輸出範例（套用種子後——兩個欄位有相同的值）：
+`--current` 輸出範例：
 
 ```
   Config:     ~/.claude.json (or ~/.claude/.claude.json)
@@ -335,36 +308,9 @@ bun buddy.js --apply f853b71e-3774-4bc7-b4a8-4cc0ed266f9f
   │  WISDOM      ████████░░  78            │
   │  SNARK       ██████░░░░  55            │
   └────────────────────────────────────────┘
-
-  Seed field: userID
-  Seed value: 9ab738bf-fb82-40fb-917d-0020259c8408
-  Format:     uuid
-
-  from userID:
-  seed: 9ab738bf-fb82-40fb-917d-0020259c8408
-  ┌────────────────────────────────────────┐
-  │ ★★★★★ LEGENDARY         DRAGON        │
-  │                                        │
-  │              \^^^/                      │
-  │            /^\  /^\                     │
-  │           <  ✦  ✦  >                   │
-  │           (   ~~   )                    │
-  │            `-vvvv-´                     │
-  │                                        │
-  │  ✨ SHINY ✨                            │
-  │                                        │
-  │  DEBUGGING   █████████░  87            │
-  │  PATIENCE    ██████░░░░  62            │
-  │  CHAOS       █████████░  91            │
-  │  WISDOM      ████████░░  78            │
-  │  SNARK       ██████░░░░  55            │
-  └────────────────────────────────────────┘
-
-  Multiple seeds found. Claude Code uses: accountUuid (OAuth) > userID > "anon"
-  Compare with /buddy output to see which seed your version uses.
 ```
 
-兩張卡片顯示相同的夥伴，因為 `--apply` 會同時寫入兩個配置欄位。如果只有一個種子，則只顯示一張卡片。
+如果配置中同時有 `accountUuid` 和 `userID`，會各顯示一張卡片。使用 `--apply` 後兩個欄位值相同，卡片也會一樣。
 
 ## 運作原理
 
