@@ -314,7 +314,6 @@ function parseArgs() {
       case "--min-stats":  opts.minStats = parsePositiveInt(args[++i], "--min-stats"); break
       case "--max":        opts.max = parsePositiveInt(args[++i], "--max"); break
       case "--count":      opts.count = parsePositiveInt(args[++i], "--count"); break
-      case "--check":      opts.check = requireArg(args, ++i, "--check"); break
       case "--current":    opts.current = true; break
       case "--apply":      opts.apply = requireArg(args, ++i, "--apply"); break
       case "--format": {
@@ -349,7 +348,6 @@ ${BOLD}Usage:${RESET}
   bun buddy.js [filters] [options]  CLI search mode
 
 ${BOLD}Modes:${RESET}
-  --check <seed>       Show what a seed produces
   --current            Show your current companion
   --apply <seed>       Write seed to both config fields (backs up first)
   --all                Find one seed for every species × rarity combo
@@ -376,11 +374,6 @@ ${BOLD}Examples:${RESET}
 }
 
 // ── Modes ─────────────────────────────────────────────────────────────────
-
-function modeCheck(seed) {
-  console.log(`\n  ${BOLD}Checking seed:${RESET} ${seed}`)
-  printCard(seed, rollCompanion(seed))
-}
 
 function modeCurrent() {
   const config = readConfig()
@@ -692,7 +685,6 @@ function modeInteractive() {
 const opts = parseArgs()
 
 if (opts.help)         { printHelp(); process.exit(0) }
-if (opts.check)        { modeCheck(opts.check); process.exit(0) }
 if (opts.current)      { modeCurrent(); process.exit(0) }
 if (opts.apply)        { modeApply(opts.apply); process.exit(0) }
 

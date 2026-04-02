@@ -82,14 +82,11 @@ bun buddy.js --species dragon --rarity legendary --shiny
 # See your current companion — shows ALL seeds found in config
 bun buddy.js --current
 
-# Check what any seed produces
-bun buddy.js --check 9ab738bf-fb82-40fb-917d-0020259c8408
-
 # Manually apply a seed to both config fields (backs up first)
 bun buddy.js --apply f853b71e-3774-4bc7-b4a8-4cc0ed266f9f
 ```
 
-Example `--current` output (when both `accountUuid` and `userID` exist):
+Example `--current` output (after applying a seed — both fields have the same value):
 
 ```
   Config:     ~/.claude.json (or ~/.claude/.claude.json)
@@ -121,32 +118,34 @@ Example `--current` output (when both `accountUuid` and `userID` exist):
   └────────────────────────────────────────┘
 
   Seed field: userID
-  Seed value: d394f00c22a96ee2...
-  Format:     hex
+  Seed value: 9ab738bf-fb82-40fb-917d-0020259c8408
+  Format:     uuid
 
   from userID:
-  seed: d394f00c22a96ee2...
+  seed: 9ab738bf-fb82-40fb-917d-0020259c8408
   ┌────────────────────────────────────────┐
-  │ ★ COMMON                CAT           │
+  │ ★★★★★ LEGENDARY         DRAGON        │
   │                                        │
-  │              /\_/\                      │
-  │             ( ·   ·)                    │
-  │             (  ω  )                     │
-  │             (")_(")                     │
+  │              \^^^/                      │
+  │            /^\  /^\                     │
+  │           <  ✦  ✦  >                   │
+  │           (   ~~   )                    │
+  │            `-vvvv-´                     │
   │                                        │
+  │  ✨ SHINY ✨                            │
   │                                        │
-  │  DEBUGGING   ██░░░░░░░░  15            │
-  │  PATIENCE    ███████░░░  67            │
-  │  CHAOS       ░░░░░░░░░░   3            │
-  │  WISDOM      ███░░░░░░░  28            │
-  │  SNARK       ████░░░░░░  41            │
+  │  DEBUGGING   █████████░  87            │
+  │  PATIENCE    ██████░░░░  62            │
+  │  CHAOS       █████████░  91            │
+  │  WISDOM      ████████░░  78            │
+  │  SNARK       ██████░░░░  55            │
   └────────────────────────────────────────┘
 
   Multiple seeds found. Claude Code uses: accountUuid (OAuth) > userID > "anon"
   Compare with /buddy output to see which seed your version uses.
 ```
 
-If only one seed exists, a single card is shown. Compare the output with your `/buddy` result to confirm which seed Claude Code is actually using.
+Both cards show the same companion because `--apply` writes the seed to both config fields. If only one seed exists, a single card is shown.
 
 ## How it works
 
@@ -190,7 +189,6 @@ bun buddy.js [options]
 
 Modes:
   (no flags)           Interactive — menus, search, pick, apply
-  --check <seed>       Show what traits a seed value produces
   --current            Show companions for ALL seeds in your config
   --apply <seed>       Write seed to both config fields (backs up first)
 
@@ -303,14 +301,11 @@ bun buddy.js --species dragon --rarity legendary --shiny
 # 查看當前夥伴——顯示配置中找到的所有種子
 bun buddy.js --current
 
-# 檢查任意種子會產生什麼
-bun buddy.js --check 9ab738bf-fb82-40fb-917d-0020259c8408
-
 # 手動套用種子到兩個配置欄位（會先備份）
 bun buddy.js --apply f853b71e-3774-4bc7-b4a8-4cc0ed266f9f
 ```
 
-`--current` 輸出範例（當 `accountUuid` 和 `userID` 同時存在時）：
+`--current` 輸出範例（套用種子後——兩個欄位有相同的值）：
 
 ```
   Config:     ~/.claude.json (or ~/.claude/.claude.json)
@@ -342,32 +337,34 @@ bun buddy.js --apply f853b71e-3774-4bc7-b4a8-4cc0ed266f9f
   └────────────────────────────────────────┘
 
   Seed field: userID
-  Seed value: d394f00c22a96ee2...
-  Format:     hex
+  Seed value: 9ab738bf-fb82-40fb-917d-0020259c8408
+  Format:     uuid
 
   from userID:
-  seed: d394f00c22a96ee2...
+  seed: 9ab738bf-fb82-40fb-917d-0020259c8408
   ┌────────────────────────────────────────┐
-  │ ★ COMMON                CAT           │
+  │ ★★★★★ LEGENDARY         DRAGON        │
   │                                        │
-  │              /\_/\                      │
-  │             ( ·   ·)                    │
-  │             (  ω  )                     │
-  │             (")_(")                     │
+  │              \^^^/                      │
+  │            /^\  /^\                     │
+  │           <  ✦  ✦  >                   │
+  │           (   ~~   )                    │
+  │            `-vvvv-´                     │
   │                                        │
+  │  ✨ SHINY ✨                            │
   │                                        │
-  │  DEBUGGING   ██░░░░░░░░  15            │
-  │  PATIENCE    ███████░░░  67            │
-  │  CHAOS       ░░░░░░░░░░   3            │
-  │  WISDOM      ███░░░░░░░  28            │
-  │  SNARK       ████░░░░░░  41            │
+  │  DEBUGGING   █████████░  87            │
+  │  PATIENCE    ██████░░░░  62            │
+  │  CHAOS       █████████░  91            │
+  │  WISDOM      ████████░░  78            │
+  │  SNARK       ██████░░░░  55            │
   └────────────────────────────────────────┘
 
   Multiple seeds found. Claude Code uses: accountUuid (OAuth) > userID > "anon"
   Compare with /buddy output to see which seed your version uses.
 ```
 
-如果只有一個種子，則只顯示一張卡片。將輸出與你的 `/buddy` 結果比較，確認 Claude Code 實際使用的是哪個種子。
+兩張卡片顯示相同的夥伴，因為 `--apply` 會同時寫入兩個配置欄位。如果只有一個種子，則只顯示一張卡片。
 
 ## 運作原理
 
@@ -411,7 +408,6 @@ bun buddy.js [選項]
 
 模式：
   （無參數）             互動模式——選單、搜尋、選擇、套用
-  --check <seed>       查看一個種子值會產生什麼特徵
   --current            顯示配置中所有種子對應的夥伴
   --apply <seed>       將種子同時寫入兩個配置欄位（會先備份）
 
