@@ -387,24 +387,34 @@ function modeCurrent() {
     process.exit(1)
   }
 
-  const info = detectSeedInfo(config)
-  console.log(`\n  ${BOLD}Config:${RESET}     ${config.path}`)
-  console.log(`  ${BOLD}Seed field:${RESET} ${info.source}`)
-  console.log(`  ${BOLD}Seed value:${RESET} ${info.value}`)
-  console.log(`  ${BOLD}Format:${RESET}     ${info.format}`)
+  const { data } = config
+  const uuid = data.oauthAccount?.accountUuid
+  const uid = data.userID
+  const seeds = []
+  if (uuid) seeds.push({ source: "oauthAccount.accountUuid", value: uuid, format: "uuid" })
+  if (uid) seeds.push({ source: "userID", value: uid, format: "hex" })
+  if (seeds.length === 0) seeds.push({ source: "anon", value: "anon", format: "uuid" })
 
-  if (config.data.companion) {
-    console.log(`  ${BOLD}Name:${RESET}       ${config.data.companion.name || "(none)"}`)
-    const personality = config.data.companion.personality
+  console.log(`\n  ${BOLD}Config:${RESET}     ${config.path}`)
+
+  if (data.companion) {
+    console.log(`  ${BOLD}Name:${RESET}       ${data.companion.name || "(none)"}`)
+    const personality = data.companion.personality
     if (personality) {
       console.log(`  ${BOLD}Personality:${RESET} ${personality.slice(0, 72)}...`)
     }
   }
 
-  printCard(info.value, rollCompanion(info.value), { label: "derived bones:" })
+  for (const info of seeds) {
+    console.log(`\n  ${BOLD}Seed field:${RESET} ${info.source}`)
+    console.log(`  ${BOLD}Seed value:${RESET} ${info.value}`)
+    console.log(`  ${BOLD}Format:${RESET}     ${info.format}`)
+    printCard(info.value, rollCompanion(info.value), { label: `from ${info.source}:` })
+  }
 
-  if (info.source === "oauthAccount.accountUuid") {
-    console.log(`  ${DIM}Seed source is accountUuid (OAuth). Changing userID alone has no effect.${RESET}`)
+  if (seeds.length > 1) {
+    console.log(`  ${DIM}Multiple seeds found. Claude Code uses: accountUuid (OAuth) > userID > "anon"${RESET}`)
+    console.log(`  ${DIM}Compare with /buddy output to see which seed your version uses.${RESET}`)
   }
 }
 

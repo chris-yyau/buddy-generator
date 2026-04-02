@@ -79,7 +79,7 @@ After the search completes, you pick your favorite result and the tool applies i
 # CLI search — specify traits as flags
 bun buddy.js --species dragon --rarity legendary --shiny
 
-# See your current companion and which config field is the seed
+# See your current companion — shows ALL seeds found in config
 bun buddy.js --current
 
 # Check what any seed produces
@@ -89,33 +89,40 @@ bun buddy.js --check 9ab738bf-fb82-40fb-917d-0020259c8408
 bun buddy.js --apply f853b71e-3774-4bc7-b4a8-4cc0ed266f9f
 ```
 
-Example `--current` output:
+Example `--current` output (when both `accountUuid` and `userID` exist):
 
 ```
   Config:     ~/.claude.json
+  Name:       Picklevein
+
   Seed field: oauthAccount.accountUuid
   Seed value: 9ab738bf-fb82-40fb-917d-0020259c8408
   Format:     uuid
-  Name:       Picklevein
 
+  from oauthAccount.accountUuid:
   ┌────────────────────────────────────────┐
   │ ★★★★★ LEGENDARY         DRAGON        │
-  │                                        │
-  │                \^^^/                   │
-  │               /^\  /^\                 │
-  │              <  ◉  ◉  >                │
-  │              (   ~~   )                │
-  │               `-vvvv-´                 │
-  │                                        │
   │  ✨ SHINY ✨                            │
-  │                                        │
   │  DEBUGGING  █████████░  87             │
-  │  PATIENCE   ████░░░░░░  44             │
-  │  CHAOS      ████████░░  76             │
-  │  WISDOM     ██████████ 100             │
-  │  SNARK      ████████░░  78             │
+  │  ...                                   │
   └────────────────────────────────────────┘
+
+  Seed field: userID
+  Seed value: d394f00c22a96ee2...
+  Format:     hex
+
+  from userID:
+  ┌────────────────────────────────────────┐
+  │ ★ COMMON                CAT           │
+  │  DEBUGGING  ██░░░░░░░░  15             │
+  │  ...                                   │
+  └────────────────────────────────────────┘
+
+  Multiple seeds found. Claude Code uses: accountUuid (OAuth) > userID > "anon"
+  Compare with /buddy output to see which seed your version uses.
 ```
+
+If only one seed exists, a single card is shown. Compare the output with your `/buddy` result to confirm which seed Claude Code is actually using.
 
 ## How it works
 
@@ -125,7 +132,7 @@ Claude Code derives all companion traits deterministically from a single seed st
 seed + "friend-2026-401" → Bun.hash (wyhash) → SplitMix32 PRNG → traits
 ```
 
-The seed is read from your `.claude.json` config:
+Claude Code picks the seed from your `.claude.json` config with this priority:
 
 ```
 oauthAccount.accountUuid ?? userID ?? "anon"
@@ -136,6 +143,8 @@ oauthAccount.accountUuid ?? userID ?? "anon"
 | OAuth login (most users) | `oauthAccount.accountUuid` | UUID (`xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx`) |
 | API key | `userID` | 64-char hex string |
 | Neither | `"anon"` | literal string |
+
+**Important:** Some configs contain _both_ `accountUuid` and `userID` (e.g., API-key users who previously logged in via OAuth). Claude Code always uses `accountUuid` when present, even in API mode. Running `--current` shows companions for **all** seeds found so you can compare with your actual `/buddy` output.
 
 The tool auto-detects which field your config uses and generates seeds in the matching format. Only `name` and `personality` come from an LLM call during `/buddy hatch` — everything else is a pure function of the seed.
 
@@ -158,7 +167,7 @@ bun buddy.js [options]
 Modes:
   (no flags)           Interactive — menus, search, pick, apply
   --check <seed>       Show what traits a seed value produces
-  --current            Show your current companion and seed source
+  --current            Show companions for ALL seeds in your config
   --apply <seed>       Write a seed to your config (backs up first)
 
 Filters:
@@ -266,7 +275,7 @@ bun buddy.js
 # CLI 搜尋——用參數指定特徵
 bun buddy.js --species dragon --rarity legendary --shiny
 
-# 查看當前夥伴和配置中的種子欄位
+# 查看當前夥伴——顯示配置中找到的所有種子
 bun buddy.js --current
 
 # 檢查任意種子會產生什麼
@@ -276,33 +285,40 @@ bun buddy.js --check 9ab738bf-fb82-40fb-917d-0020259c8408
 bun buddy.js --apply f853b71e-3774-4bc7-b4a8-4cc0ed266f9f
 ```
 
-`--current` 輸出範例：
+`--current` 輸出範例（當 `accountUuid` 和 `userID` 同時存在時）：
 
 ```
   Config:     ~/.claude.json
+  Name:       Picklevein
+
   Seed field: oauthAccount.accountUuid
   Seed value: 9ab738bf-fb82-40fb-917d-0020259c8408
   Format:     uuid
-  Name:       Picklevein
 
+  from oauthAccount.accountUuid:
   ┌────────────────────────────────────────┐
   │ ★★★★★ LEGENDARY         DRAGON        │
-  │                                        │
-  │                \^^^/                   │
-  │               /^\  /^\                 │
-  │              <  ◉  ◉  >                │
-  │              (   ~~   )                │
-  │               `-vvvv-´                 │
-  │                                        │
   │  ✨ SHINY ✨                            │
-  │                                        │
   │  DEBUGGING  █████████░  87             │
-  │  PATIENCE   ████░░░░░░  44             │
-  │  CHAOS      ████████░░  76             │
-  │  WISDOM     ██████████ 100             │
-  │  SNARK      ████████░░  78             │
+  │  ...                                   │
   └────────────────────────────────────────┘
+
+  Seed field: userID
+  Seed value: d394f00c22a96ee2...
+  Format:     hex
+
+  from userID:
+  ┌────────────────────────────────────────┐
+  │ ★ COMMON                CAT           │
+  │  DEBUGGING  ██░░░░░░░░  15             │
+  │  ...                                   │
+  └────────────────────────────────────────┘
+
+  Multiple seeds found. Claude Code uses: accountUuid (OAuth) > userID > "anon"
+  Compare with /buddy output to see which seed your version uses.
 ```
+
+如果只有一個種子，則只顯示一張卡片。將輸出與你的 `/buddy` 結果比較，確認 Claude Code 實際使用的是哪個種子。
 
 ## 運作原理
 
@@ -312,7 +328,7 @@ Claude Code 從單一種子字串確定性地派生所有夥伴特徵：
 種子 + "friend-2026-401" → Bun.hash (wyhash) → SplitMix32 PRNG → 特徵
 ```
 
-種子從你的 `.claude.json` 配置檔中讀取：
+Claude Code 按以下優先順序從 `.claude.json` 配置檔中選取種子：
 
 ```
 oauthAccount.accountUuid ?? userID ?? "anon"
@@ -323,6 +339,8 @@ oauthAccount.accountUuid ?? userID ?? "anon"
 | OAuth 登入（大多數使用者） | `oauthAccount.accountUuid` | UUID (`xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx`) |
 | API 金鑰 | `userID` | 64 位十六進位字串 |
 | 都沒有 | `"anon"` | 字面字串 |
+
+**重要：** 某些配置中同時包含 `accountUuid` 和 `userID`（例如曾經透過 OAuth 登入過的 API 金鑰使用者）。即使在 API 模式下，只要 `accountUuid` 存在，Claude Code 就會優先使用它。執行 `--current` 會顯示配置中**所有**種子對應的夥伴，方便你與實際的 `/buddy` 輸出比較。
 
 工具會自動偵測你的配置使用哪個欄位，並以匹配的格式產生種子。只有 `name`（名字）和 `personality`（性格）來自 `/buddy hatch` 時的 LLM 呼叫——其他一切都是種子的純函數。
 
@@ -345,7 +363,7 @@ bun buddy.js [選項]
 模式：
   （無參數）             互動模式——選單、搜尋、選擇、套用
   --check <seed>       查看一個種子值會產生什麼特徵
-  --current            查看當前夥伴和種子來源
+  --current            顯示配置中所有種子對應的夥伴
   --apply <seed>       將種子寫入配置（會先備份）
 
 篩選：
