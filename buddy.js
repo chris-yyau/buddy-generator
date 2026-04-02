@@ -326,6 +326,7 @@ function parseArgs() {
         opts.format = fmt
         break
       }
+      case "--all":        opts.all = true; break
       case "--help": case "-h": opts.help = true; break
       default:
         if (args[i].startsWith("-")) {
@@ -351,6 +352,7 @@ ${BOLD}Modes:${RESET}
   --check <seed>       Show what a seed produces
   --current            Show your current companion
   --apply <seed>       Write seed to config (backs up first)
+  --all                Find one seed for every species × rarity combo
 
 ${BOLD}Filters:${RESET}
   --species <name>     ${SPECIES.join(", ")}
@@ -361,7 +363,7 @@ ${BOLD}Filters:${RESET}
   --min-stats <n>      Require ALL stats >= n
 
 ${BOLD}Options:${RESET}
-  --format uuid|hex    Override seed format (default: auto-detect)
+  --format uuid|hex    Force single format (default: searches both)
   --max <n>            Max iterations (default: 10,000,000)
   --count <n>          Results to find (default: 3)
 
@@ -418,25 +420,6 @@ function modeCurrent() {
   }
 }
 
-function validateSeedFormat(seed, info) {
-  const isUuid = UUID_RE.test(seed)
-  if (!isUuid && !HEX64_RE.test(seed)) {
-    console.error(`  Error: Seed must be a UUID (xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx)`)
-    console.error(`  or a 64-char hex string. Got: ${seed}`)
-    process.exit(1)
-  }
-  if (info.format === "uuid" && !isUuid) {
-    console.error(`  Error: Your config uses ${info.source} (UUID format) but you provided a hex seed.`)
-    console.error(`  Use --format uuid when searching, or provide a UUID-format seed.`)
-    process.exit(1)
-  }
-  if (info.format === "hex" && isUuid) {
-    console.error(`  Error: Your config uses ${info.source} (hex format) but you provided a UUID seed.`)
-    console.error(`  Use --format hex when searching, or provide a hex-format seed.`)
-    process.exit(1)
-  }
-}
-
 function writeConfigAtomically(configPath, data) {
   const tmpPath = configPath + ".tmp-" + Date.now()
   fs.writeFileSync(tmpPath, JSON.stringify(data, null, 2) + "\n")
@@ -450,27 +433,44 @@ function modeApply(seed) {
     process.exit(1)
   }
 
-  const info = detectSeedInfo(config)
-  validateSeedFormat(seed, info)
+  const isUuid = UUID_RE.test(seed)
+  if (!isUuid && !HEX64_RE.test(seed)) {
+    console.error(`  Error: Seed must be a UUID (xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx)`)
+    console.error(`  or a 64-char hex string. Got: ${seed}`)
+    process.exit(1)
+  }
 
+  const info = detectSeedInfo(config)
   const buddy = rollCompanion(seed)
+
   console.log(`\n  ${BOLD}Applying to:${RESET} ${config.path}`)
   console.log(`  ${BOLD}Current seed:${RESET} ${info.value} (${info.source})`)
   console.log(`  ${BOLD}New seed:${RESET}     ${seed}`)
   printCard(seed, buddy)
 
+  // Route by seed format: UUID → accountUuid, hex → userID
+  const { companion: _, ...rest } = config.data
+  let newData, field
+
+  if (isUuid) {
+    newData = { ...rest, oauthAccount: { ...rest.oauthAccount, accountUuid: seed } }
+    field = "oauthAccount.accountUuid"
+  } else {
+    if (rest.oauthAccount?.accountUuid) {
+      console.error(`  Error: Your config has oauthAccount.accountUuid which takes priority.`)
+      console.error(`  A hex seed written to userID won't change your buddy.`)
+      console.error(`  Use a UUID-format seed instead (search results marked [uuid]).`)
+      process.exit(1)
+    }
+    newData = { ...rest, userID: seed }
+    field = "userID"
+  }
+
   const backupPath = config.path + ".backup-" + Date.now()
   fs.copyFileSync(config.path, backupPath)
   console.log(`  ${DIM}Backup saved: ${backupPath}${RESET}`)
-
-  const seedUpdate = info.source === "oauthAccount.accountUuid"
-    ? { oauthAccount: { ...config.data.oauthAccount, accountUuid: seed } }
-    : { userID: seed }
-  const { companion: _, ...rest } = config.data
-  const newData = { ...rest, ...seedUpdate }
-
-  const field = info.source === "oauthAccount.accountUuid" ? "oauthAccount.accountUuid" : "userID"
   console.log(`  ${DIM}Updated: ${field}${RESET}`)
+
   writeConfigAtomically(config.path, newData)
   console.log(`\n  ${BOLD}Done!${RESET} Restart Claude Code and run ${BOLD}/buddy hatch${RESET}`)
   console.log(`  ${DIM}(name and personality are LLM-generated — they'll be unique each time)${RESET}`)
@@ -487,16 +487,6 @@ function describeFilters(opts) {
   return parts
 }
 
-function detectSearchFormat(opts) {
-  if (opts.format) return opts.format
-  const config = readConfig()
-  const info = config ? detectSeedInfo(config) : { format: "uuid" }
-  if (config) {
-    console.log(`  ${DIM}Detected auth: ${info.source} → generating ${info.format} seeds${RESET}`)
-  }
-  return info.format
-}
-
 function modeSearch(opts) {
   const filters = describeFilters(opts)
   if (filters.length === 0) {
@@ -504,10 +494,10 @@ function modeSearch(opts) {
     process.exit(1)
   }
 
-  const format = detectSearchFormat(opts)
-  const generateSeed = format === "hex" ? randomHex64 : randomUUID
+  const formats = opts.format ? [opts.format] : ["uuid", "hex"]
+  const generators = { uuid: randomUUID, hex: randomHex64 }
 
-  console.log(`\n  ${BOLD}buddy${RESET} — searching ${format} space`)
+  console.log(`\n  ${BOLD}buddy${RESET} — searching ${formats.join(" + ")} space`)
   console.log(`  ${DIM}Filters: ${filters.join(", ")}${RESET}`)
   console.log(`  ${DIM}Max: ${opts.max.toLocaleString()}, find: ${opts.count}${RESET}`)
   console.log()
@@ -524,7 +514,8 @@ function modeSearch(opts) {
       lastReport = now
     }
 
-    const seed = generateSeed()
+    const fmt = formats[i % formats.length]
+    const seed = generators[fmt]()
     const rng = splitmix32(bunHash(seed + SALT))
 
     // Early rejection in PRNG consumption order
@@ -547,10 +538,11 @@ function modeSearch(opts) {
     if (opts.minStats && !Object.values(stats).every(v => v >= opts.minStats)) continue
 
     const buddy = { rarity, species, eye, hat, shiny, stats }
-    results.push({ seed, buddy })
+    results.push({ seed, buddy, format: fmt })
 
     const elapsed = ((performance.now() - startTime) / 1000).toFixed(1)
-    console.log(`  ${BOLD}Match #${results.length}${RESET} after ${(i + 1).toLocaleString()} attempts (${elapsed}s)`)
+    const fmtLabel = formats.length > 1 ? ` ${DIM}[${fmt}]${RESET}` : ""
+    console.log(`  ${BOLD}Match #${results.length}${RESET}${fmtLabel} after ${(i + 1).toLocaleString()} attempts (${elapsed}s)`)
     printCard(seed, buddy)
 
     if (results.length >= opts.count) break
@@ -642,24 +634,44 @@ function gatherTraits() {
 }
 
 function pickAndApplyResult(results) {
+  // Filter to config-compatible results (hex seeds can't override accountUuid)
+  const config = readConfig()
+  const info = config ? detectSeedInfo(config) : null
+  const hasAccountUuid = info?.source === "oauthAccount.accountUuid"
+
+  const compatible = results.filter(r =>
+    !r.format || !hasAccountUuid || r.format !== "hex"
+  )
+
+  const hidden = results.length - compatible.length
+  if (hidden > 0) {
+    console.log(`  ${DIM}(${hidden} hex result(s) hidden — your config uses accountUuid)${RESET}`)
+  }
+
+  if (compatible.length === 0) {
+    console.log(`  ${DIM}No compatible results for your config. Try again with --format uuid.${RESET}`)
+    return
+  }
+
   let chosen = null
-  if (results.length === 1) {
-    if (confirm("Apply this companion?")) chosen = results[0]
+  if (compatible.length === 1) {
+    if (confirm("Apply this companion?")) chosen = compatible[0]
   } else {
     console.log(`\n  ${BOLD}Which one do you want?${RESET}`)
-    for (let i = 0; i < results.length; i++) {
-      const r = results[i]
+    for (let i = 0; i < compatible.length; i++) {
+      const r = compatible[i]
       const traits = [r.buddy.rarity, r.buddy.species]
       if (r.buddy.shiny) traits.push("shiny")
       if (r.buddy.hat !== "none") traits.push(`hat:${r.buddy.hat}`)
       traits.push(`eye:${r.buddy.eye}`)
-      console.log(`    ${DIM}${i + 1}.${RESET} ${traits.join(" ")}  ${DIM}${r.seed.slice(0, 18)}...${RESET}`)
+      const fmtTag = r.format ? `[${r.format}] ` : ""
+      console.log(`    ${DIM}${i + 1}.${RESET} ${fmtTag}${traits.join(" ")}  ${DIM}${r.seed.slice(0, 18)}...${RESET}`)
     }
     console.log(`    ${DIM}0.${RESET} none (exit)`)
 
     const raw = prompt(`  ${DIM}>${RESET} `)
     const n = parseInt(raw)
-    if (n >= 1 && n <= results.length) chosen = results[n - 1]
+    if (n >= 1 && n <= compatible.length) chosen = compatible[n - 1]
   }
 
   if (!chosen) {
@@ -721,6 +733,7 @@ if (!hasFilters) {
 } else {
   const results = modeSearch(opts)
   for (const r of results) {
-    console.log(`  ${DIM}Apply: bun buddy.js --apply ${r.seed}${RESET}`)
+    const fmtTag = r.format ? ` [${r.format}]` : ""
+    console.log(`  ${DIM}Apply${fmtTag}: bun buddy.js --apply ${r.seed}${RESET}`)
   }
 }

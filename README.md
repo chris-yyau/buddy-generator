@@ -179,13 +179,14 @@ Filters:
   --min-stats <n>      Require ALL stats >= n
 
 Options:
-  --format uuid|hex    Override seed format (default: auto-detect from config)
+  --format uuid|hex    Force single format (default: searches both)
   --max <n>            Max search iterations (default: 10,000,000)
   --count <n>          Number of results to find (default: 3)
 ```
 
 ## Notes
 
+- **Seed formats**: The search generates seeds in both UUID and 64-char hex formats by default. UUID seeds are written to `oauthAccount.accountUuid`; hex seeds to `userID`. If your config has `accountUuid` (OAuth users), **only UUID seeds will work** — hex seeds go to `userID` which is lower priority and gets ignored. Use `--format uuid` to skip hex results if you're an OAuth user.
 - **Auth refresh**: Claude Code may overwrite `accountUuid` on token renewal. Re-apply if your companion reverts.
 - **Name & personality**: These are LLM-generated during `/buddy hatch` — the seed only controls species, rarity, stats, hat, eyes, and shiny.
 - **Version**: Reverse-engineered from Claude Code 2.1.89. The salt or algorithm may change in future versions.
@@ -375,13 +376,14 @@ bun buddy.js [選項]
   --min-stats <n>      要求所有屬性 >= n
 
 選項：
-  --format uuid|hex    覆蓋種子格式（預設：自動偵測）
+  --format uuid|hex    強制單一格式（預設：搜尋雙格式）
   --max <n>            最大搜尋迭代次數（預設：10,000,000）
   --count <n>          要找到的結果數量（預設：3）
 ```
 
 ## 注意事項
 
+- **種子格式**：搜尋預設會同時產生 UUID 和 64 字元十六進位兩種格式的種子。UUID 種子會寫入 `oauthAccount.accountUuid`；十六進位種子則寫入 `userID`。如果你的配置中有 `accountUuid`（OAuth 使用者），**只有 UUID 種子會生效**——十六進位種子會寫到優先順序較低的 `userID`，會被忽略。OAuth 使用者可用 `--format uuid` 跳過十六進位結果。
 - **認證刷新**：Claude Code 在刷新令牌時可能會覆寫 `accountUuid`。如果你的夥伴恢復原樣，需要重新套用種子。
 - **名字和性格**：這些是 `/buddy hatch` 時由 LLM 產生的——種子只控制物種、稀有度、屬性、帽子、眼睛和閃光。
 - **版本**：基於 Claude Code 2.1.89 逆向工程。鹽值或演算法可能在未來版本中改變。
