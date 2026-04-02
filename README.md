@@ -85,26 +85,39 @@ bun buddy.js --current
 # Check what any seed produces
 bun buddy.js --check 9ab738bf-fb82-40fb-917d-0020259c8408
 
-# Manually apply a seed (backs up your config first)
+# Manually apply a seed to both config fields (backs up first)
 bun buddy.js --apply f853b71e-3774-4bc7-b4a8-4cc0ed266f9f
 ```
 
 Example `--current` output (when both `accountUuid` and `userID` exist):
 
 ```
-  Config:     ~/.claude.json
+  Config:     ~/.claude.json (or ~/.claude/.claude.json)
   Name:       Picklevein
+  Personality: A mischievous dragon who hoards semicolons and...
 
   Seed field: oauthAccount.accountUuid
   Seed value: 9ab738bf-fb82-40fb-917d-0020259c8408
   Format:     uuid
 
   from oauthAccount.accountUuid:
+  seed: 9ab738bf-fb82-40fb-917d-0020259c8408
   ┌────────────────────────────────────────┐
   │ ★★★★★ LEGENDARY         DRAGON        │
+  │                                        │
+  │              \^^^/                      │
+  │            /^\  /^\                     │
+  │           <  ✦  ✦  >                   │
+  │           (   ~~   )                    │
+  │            `-vvvv-´                     │
+  │                                        │
   │  ✨ SHINY ✨                            │
-  │  DEBUGGING  █████████░  87             │
-  │  ...                                   │
+  │                                        │
+  │  DEBUGGING   █████████░  87            │
+  │  PATIENCE    ██████░░░░  62            │
+  │  CHAOS       █████████░  91            │
+  │  WISDOM      ████████░░  78            │
+  │  SNARK       ██████░░░░  55            │
   └────────────────────────────────────────┘
 
   Seed field: userID
@@ -112,10 +125,21 @@ Example `--current` output (when both `accountUuid` and `userID` exist):
   Format:     hex
 
   from userID:
+  seed: d394f00c22a96ee2...
   ┌────────────────────────────────────────┐
   │ ★ COMMON                CAT           │
-  │  DEBUGGING  ██░░░░░░░░  15             │
-  │  ...                                   │
+  │                                        │
+  │              /\_/\                      │
+  │             ( ·   ·)                    │
+  │             (  ω  )                     │
+  │             (")_(")                     │
+  │                                        │
+  │                                        │
+  │  DEBUGGING   ██░░░░░░░░  15            │
+  │  PATIENCE    ███████░░░  67            │
+  │  CHAOS       ░░░░░░░░░░   3            │
+  │  WISDOM      ███░░░░░░░  28            │
+  │  SNARK       ████░░░░░░  41            │
   └────────────────────────────────────────┘
 
   Multiple seeds found. Claude Code uses: accountUuid (OAuth) > userID > "anon"
@@ -132,7 +156,7 @@ Claude Code derives all companion traits deterministically from a single seed st
 seed + "friend-2026-401" → Bun.hash (wyhash) → SplitMix32 PRNG → traits
 ```
 
-Claude Code picks the seed from your `.claude.json` config with this priority:
+Claude Code stores its config at `~/.claude/.claude.json` or `~/.claude.json` (the tool checks both). It picks the seed with this priority:
 
 ```
 oauthAccount.accountUuid ?? userID ?? "anon"
@@ -146,7 +170,7 @@ oauthAccount.accountUuid ?? userID ?? "anon"
 
 **Important:** Some configs contain _both_ `accountUuid` and `userID` (e.g., API-key users who previously logged in via OAuth). Claude Code always uses `accountUuid` when present, even in API mode. Running `--current` shows companions for **all** seeds found so you can compare with your actual `/buddy` output.
 
-The tool auto-detects which field your config uses and generates seeds in the matching format. Only `name` and `personality` come from an LLM call during `/buddy hatch` — everything else is a pure function of the seed.
+When applying a seed, the tool writes it to **both** config fields so the result is the same regardless of auth type. Only `name` and `personality` come from an LLM call during `/buddy hatch` — everything else is a pure function of the seed.
 
 ## Available traits
 
@@ -168,7 +192,7 @@ Modes:
   (no flags)           Interactive — menus, search, pick, apply
   --check <seed>       Show what traits a seed value produces
   --current            Show companions for ALL seeds in your config
-  --apply <seed>       Write a seed to your config (backs up first)
+  --apply <seed>       Write seed to both config fields (backs up first)
 
 Filters:
   --species <name>     Target species
@@ -186,7 +210,7 @@ Options:
 
 ## Notes
 
-- **Seed formats**: The search generates seeds in both UUID and 64-char hex formats by default. UUID seeds are written to `oauthAccount.accountUuid`; hex seeds to `userID`. If your config has `accountUuid` (OAuth users), **only UUID seeds will work** — hex seeds go to `userID` which is lower priority and gets ignored. Use `--format uuid` to skip hex results if you're an OAuth user.
+- **Seed formats**: The search generates seeds in both UUID and 64-char hex formats by default (`--format` forces one). When applying, the seed is written to **both** `oauthAccount.accountUuid` and `userID`, so the buddy is the same regardless of which auth method Claude Code uses. Seeds found by this tool are universally compatible.
 - **Auth refresh**: Claude Code may overwrite `accountUuid` on token renewal. Re-apply if your companion reverts.
 - **Name & personality**: These are LLM-generated during `/buddy hatch` — the seed only controls species, rarity, stats, hat, eyes, and shiny.
 - **Version**: Reverse-engineered from Claude Code 2.1.89. The salt or algorithm may change in future versions.
@@ -282,26 +306,39 @@ bun buddy.js --current
 # 檢查任意種子會產生什麼
 bun buddy.js --check 9ab738bf-fb82-40fb-917d-0020259c8408
 
-# 手動套用種子（會先備份配置）
+# 手動套用種子到兩個配置欄位（會先備份）
 bun buddy.js --apply f853b71e-3774-4bc7-b4a8-4cc0ed266f9f
 ```
 
 `--current` 輸出範例（當 `accountUuid` 和 `userID` 同時存在時）：
 
 ```
-  Config:     ~/.claude.json
+  Config:     ~/.claude.json (or ~/.claude/.claude.json)
   Name:       Picklevein
+  Personality: A mischievous dragon who hoards semicolons and...
 
   Seed field: oauthAccount.accountUuid
   Seed value: 9ab738bf-fb82-40fb-917d-0020259c8408
   Format:     uuid
 
   from oauthAccount.accountUuid:
+  seed: 9ab738bf-fb82-40fb-917d-0020259c8408
   ┌────────────────────────────────────────┐
   │ ★★★★★ LEGENDARY         DRAGON        │
+  │                                        │
+  │              \^^^/                      │
+  │            /^\  /^\                     │
+  │           <  ✦  ✦  >                   │
+  │           (   ~~   )                    │
+  │            `-vvvv-´                     │
+  │                                        │
   │  ✨ SHINY ✨                            │
-  │  DEBUGGING  █████████░  87             │
-  │  ...                                   │
+  │                                        │
+  │  DEBUGGING   █████████░  87            │
+  │  PATIENCE    ██████░░░░  62            │
+  │  CHAOS       █████████░  91            │
+  │  WISDOM      ████████░░  78            │
+  │  SNARK       ██████░░░░  55            │
   └────────────────────────────────────────┘
 
   Seed field: userID
@@ -309,10 +346,21 @@ bun buddy.js --apply f853b71e-3774-4bc7-b4a8-4cc0ed266f9f
   Format:     hex
 
   from userID:
+  seed: d394f00c22a96ee2...
   ┌────────────────────────────────────────┐
   │ ★ COMMON                CAT           │
-  │  DEBUGGING  ██░░░░░░░░  15             │
-  │  ...                                   │
+  │                                        │
+  │              /\_/\                      │
+  │             ( ·   ·)                    │
+  │             (  ω  )                     │
+  │             (")_(")                     │
+  │                                        │
+  │                                        │
+  │  DEBUGGING   ██░░░░░░░░  15            │
+  │  PATIENCE    ███████░░░  67            │
+  │  CHAOS       ░░░░░░░░░░   3            │
+  │  WISDOM      ███░░░░░░░  28            │
+  │  SNARK       ████░░░░░░  41            │
   └────────────────────────────────────────┘
 
   Multiple seeds found. Claude Code uses: accountUuid (OAuth) > userID > "anon"
@@ -329,7 +377,7 @@ Claude Code 從單一種子字串確定性地派生所有夥伴特徵：
 種子 + "friend-2026-401" → Bun.hash (wyhash) → SplitMix32 PRNG → 特徵
 ```
 
-Claude Code 按以下優先順序從 `.claude.json` 配置檔中選取種子：
+Claude Code 的配置檔位於 `~/.claude/.claude.json` 或 `~/.claude.json`（工具會同時檢查兩者）。種子的選取優先順序如下：
 
 ```
 oauthAccount.accountUuid ?? userID ?? "anon"
@@ -343,7 +391,7 @@ oauthAccount.accountUuid ?? userID ?? "anon"
 
 **重要：** 某些配置中同時包含 `accountUuid` 和 `userID`（例如曾經透過 OAuth 登入過的 API 金鑰使用者）。即使在 API 模式下，只要 `accountUuid` 存在，Claude Code 就會優先使用它。執行 `--current` 會顯示配置中**所有**種子對應的夥伴，方便你與實際的 `/buddy` 輸出比較。
 
-工具會自動偵測你的配置使用哪個欄位，並以匹配的格式產生種子。只有 `name`（名字）和 `personality`（性格）來自 `/buddy hatch` 時的 LLM 呼叫——其他一切都是種子的純函數。
+套用種子時，工具會同時寫入**兩個**配置欄位，確保無論使用哪種認證方式，結果都相同。只有 `name`（名字）和 `personality`（性格）來自 `/buddy hatch` 時的 LLM 呼叫——其他一切都是種子的純函數。
 
 ## 可用特徵
 
@@ -365,7 +413,7 @@ bun buddy.js [選項]
   （無參數）             互動模式——選單、搜尋、選擇、套用
   --check <seed>       查看一個種子值會產生什麼特徵
   --current            顯示配置中所有種子對應的夥伴
-  --apply <seed>       將種子寫入配置（會先備份）
+  --apply <seed>       將種子同時寫入兩個配置欄位（會先備份）
 
 篩選：
   --species <name>     目標物種
@@ -383,7 +431,7 @@ bun buddy.js [選項]
 
 ## 注意事項
 
-- **種子格式**：搜尋預設會同時產生 UUID 和 64 字元十六進位兩種格式的種子。UUID 種子會寫入 `oauthAccount.accountUuid`；十六進位種子則寫入 `userID`。如果你的配置中有 `accountUuid`（OAuth 使用者），**只有 UUID 種子會生效**——十六進位種子會寫到優先順序較低的 `userID`，會被忽略。OAuth 使用者可用 `--format uuid` 跳過十六進位結果。
+- **種子格式**：搜尋預設會同時產生 UUID 和 64 字元十六進位兩種格式的種子（`--format` 可強制單一格式）。套用時，種子會同時寫入 `oauthAccount.accountUuid` 和 `userID` 兩個欄位，因此無論 Claude Code 使用哪種認證方式，夥伴都會相同。本工具產生的種子具有通用相容性。
 - **認證刷新**：Claude Code 在刷新令牌時可能會覆寫 `accountUuid`。如果你的夥伴恢復原樣，需要重新套用種子。
 - **名字和性格**：這些是 `/buddy hatch` 時由 LLM 產生的——種子只控制物種、稀有度、屬性、帽子、眼睛和閃光。
 - **版本**：基於 Claude Code 2.1.89 逆向工程。鹽值或演算法可能在未來版本中改變。

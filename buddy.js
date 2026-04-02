@@ -351,7 +351,7 @@ ${BOLD}Usage:${RESET}
 ${BOLD}Modes:${RESET}
   --check <seed>       Show what a seed produces
   --current            Show your current companion
-  --apply <seed>       Write seed to config (backs up first)
+  --apply <seed>       Write seed to both config fields (backs up first)
   --all                Find one seed for every species × rarity combo
 
 ${BOLD}Filters:${RESET}
@@ -433,8 +433,7 @@ function modeApply(seed) {
     process.exit(1)
   }
 
-  const isUuid = UUID_RE.test(seed)
-  if (!isUuid && !HEX64_RE.test(seed)) {
+  if (!UUID_RE.test(seed) && !HEX64_RE.test(seed)) {
     console.error(`  Error: Seed must be a UUID (xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx)`)
     console.error(`  or a 64-char hex string. Got: ${seed}`)
     process.exit(1)
@@ -448,28 +447,18 @@ function modeApply(seed) {
   console.log(`  ${BOLD}New seed:${RESET}     ${seed}`)
   printCard(seed, buddy)
 
-  // Route by seed format: UUID → accountUuid, hex → userID
+  // Write to BOTH fields so the buddy is the same regardless of auth type
   const { companion: _, ...rest } = config.data
-  let newData, field
-
-  if (isUuid) {
-    newData = { ...rest, oauthAccount: { ...rest.oauthAccount, accountUuid: seed } }
-    field = "oauthAccount.accountUuid"
-  } else {
-    if (rest.oauthAccount?.accountUuid) {
-      console.error(`  Error: Your config has oauthAccount.accountUuid which takes priority.`)
-      console.error(`  A hex seed written to userID won't change your buddy.`)
-      console.error(`  Use a UUID-format seed instead (search results marked [uuid]).`)
-      process.exit(1)
-    }
-    newData = { ...rest, userID: seed }
-    field = "userID"
+  const newData = {
+    ...rest,
+    oauthAccount: { ...rest.oauthAccount, accountUuid: seed },
+    userID: seed,
   }
 
   const backupPath = config.path + ".backup-" + Date.now()
   fs.copyFileSync(config.path, backupPath)
   console.log(`  ${DIM}Backup saved: ${backupPath}${RESET}`)
-  console.log(`  ${DIM}Updated: ${field}${RESET}`)
+  console.log(`  ${DIM}Updated: oauthAccount.accountUuid + userID${RESET}`)
 
   writeConfigAtomically(config.path, newData)
   console.log(`\n  ${BOLD}Done!${RESET} Restart Claude Code and run ${BOLD}/buddy hatch${RESET}`)
@@ -541,8 +530,7 @@ function modeSearch(opts) {
     results.push({ seed, buddy, format: fmt })
 
     const elapsed = ((performance.now() - startTime) / 1000).toFixed(1)
-    const fmtLabel = formats.length > 1 ? ` ${DIM}[${fmt}]${RESET}` : ""
-    console.log(`  ${BOLD}Match #${results.length}${RESET}${fmtLabel} after ${(i + 1).toLocaleString()} attempts (${elapsed}s)`)
+    console.log(`  ${BOLD}Match #${results.length}${RESET} after ${(i + 1).toLocaleString()} attempts (${elapsed}s)`)
     printCard(seed, buddy)
 
     if (results.length >= opts.count) break
@@ -634,44 +622,26 @@ function gatherTraits() {
 }
 
 function pickAndApplyResult(results) {
-  // Filter to config-compatible results (hex seeds can't override accountUuid)
-  const config = readConfig()
-  const info = config ? detectSeedInfo(config) : null
-  const hasAccountUuid = info?.source === "oauthAccount.accountUuid"
-
-  const compatible = results.filter(r =>
-    !r.format || !hasAccountUuid || r.format !== "hex"
-  )
-
-  const hidden = results.length - compatible.length
-  if (hidden > 0) {
-    console.log(`  ${DIM}(${hidden} hex result(s) hidden — your config uses accountUuid)${RESET}`)
-  }
-
-  if (compatible.length === 0) {
-    console.log(`  ${DIM}No compatible results for your config. Try again with --format uuid.${RESET}`)
-    return
-  }
+  if (results.length === 0) return
 
   let chosen = null
-  if (compatible.length === 1) {
-    if (confirm("Apply this companion?")) chosen = compatible[0]
+  if (results.length === 1) {
+    if (confirm("Apply this companion?")) chosen = results[0]
   } else {
     console.log(`\n  ${BOLD}Which one do you want?${RESET}`)
-    for (let i = 0; i < compatible.length; i++) {
-      const r = compatible[i]
+    for (let i = 0; i < results.length; i++) {
+      const r = results[i]
       const traits = [r.buddy.rarity, r.buddy.species]
       if (r.buddy.shiny) traits.push("shiny")
       if (r.buddy.hat !== "none") traits.push(`hat:${r.buddy.hat}`)
       traits.push(`eye:${r.buddy.eye}`)
-      const fmtTag = r.format ? `[${r.format}] ` : ""
-      console.log(`    ${DIM}${i + 1}.${RESET} ${fmtTag}${traits.join(" ")}  ${DIM}${r.seed.slice(0, 18)}...${RESET}`)
+      console.log(`    ${DIM}${i + 1}.${RESET} ${traits.join(" ")}  ${DIM}${r.seed.slice(0, 18)}...${RESET}`)
     }
     console.log(`    ${DIM}0.${RESET} none (exit)`)
 
     const raw = prompt(`  ${DIM}>${RESET} `)
     const n = parseInt(raw)
-    if (n >= 1 && n <= compatible.length) chosen = compatible[n - 1]
+    if (n >= 1 && n <= results.length) chosen = results[n - 1]
   }
 
   if (!chosen) {
@@ -733,7 +703,6 @@ if (!hasFilters) {
 } else {
   const results = modeSearch(opts)
   for (const r of results) {
-    const fmtTag = r.format ? ` [${r.format}]` : ""
-    console.log(`  ${DIM}Apply${fmtTag}: bun buddy.js --apply ${r.seed}${RESET}`)
+    console.log(`  ${DIM}Apply: bun buddy.js --apply ${r.seed}${RESET}`)
   }
 }
