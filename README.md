@@ -125,8 +125,17 @@ If your config has both `accountUuid` and `userID` with the same value (e.g. aft
 Claude Code derives all companion traits deterministically from a single seed string:
 
 ```
-seed + "friend-2026-401" → Bun.hash (wyhash) → SplitMix32 PRNG → traits
+seed + "friend-2026-401" → hash → SplitMix32 PRNG → traits
 ```
+
+The hash function depends on how Claude Code was installed:
+
+| Installation | Hash | How to detect |
+|---|---|---|
+| Compiled binary (newer) | Bun.hash (wyhash) | `file $(which claude)` shows "Mach-O" or "ELF" |
+| npm package (Node.js) | FNV-1a | `file $(which claude)` shows "script" or "text" |
+
+The tool tries to auto-detect which hash your Claude Code uses by inspecting the binary. If detection fails or `--current` doesn't match `/buddy`, use `--hash fnv1a` (npm installs) or `--hash wyhash` (compiled binary) to force the correct mode.
 
 Claude Code stores its config at `~/.claude/.claude.json` or `~/.claude.json` (the tool checks both). It picks the seed with this priority:
 
@@ -175,6 +184,7 @@ Filters:
 
 Options:
   --format uuid|hex    Force single format (default: searches both)
+  --hash auto|wyhash|fnv1a  Hash function (default: auto-detect)
   --max <n>            Max search iterations (default: 10,000,000)
   --count <n>          Number of results to find (default: 3)
 ```
@@ -182,9 +192,10 @@ Options:
 ## Notes
 
 - **Seed formats**: The search generates seeds in both UUID and 64-char hex formats by default (`--format` forces one). When applying, the seed is written to **both** `oauthAccount.accountUuid` and `userID`, so the buddy is the same regardless of which auth method Claude Code uses. Seeds found by this tool are universally compatible.
+- **Hash mismatch**: If `--current` doesn't match your actual `/buddy`, your Claude Code installation uses a different hash function. The tool tries to auto-detect this, but you can force it with `--hash fnv1a` (npm/Node.js installs) or `--hash wyhash` (compiled binary installs).
 - **Auth refresh**: Claude Code may overwrite `accountUuid` on token renewal. Re-apply if your companion reverts.
 - **Name & personality**: These are LLM-generated during `/buddy hatch` — the seed only controls species, rarity, stats, hat, eyes, and shiny.
-- **Version**: Reverse-engineered from Claude Code 2.1.89. The salt or algorithm may change in future versions.
+- **Version**: Reverse-engineered from Claude Code. The salt or algorithm may change in future versions.
 
 ## License
 
@@ -317,8 +328,17 @@ bun buddy.js --apply f853b71e-3774-4bc7-b4a8-4cc0ed266f9f
 Claude Code 從單一種子字串確定性地派生所有夥伴特徵：
 
 ```
-種子 + "friend-2026-401" → Bun.hash (wyhash) → SplitMix32 PRNG → 特徵
+種子 + "friend-2026-401" → 雜湊 → SplitMix32 PRNG → 特徵
 ```
+
+雜湊函數取決於 Claude Code 的安裝方式：
+
+| 安裝方式 | 雜湊 | 偵測方法 |
+|---|---|---|
+| 編譯二進位檔（較新） | Bun.hash (wyhash) | `file $(which claude)` 顯示 "Mach-O" 或 "ELF" |
+| npm 套件（Node.js） | FNV-1a | `file $(which claude)` 顯示 "script" 或 "text" |
+
+工具會嘗試透過檢查二進位檔來自動偵測你的 Claude Code 使用哪種雜湊。如果偵測失敗或 `--current` 與 `/buddy` 不符，請用 `--hash fnv1a`（npm 安裝）或 `--hash wyhash`（編譯二進位）強制指定正確模式。
 
 Claude Code 的配置檔位於 `~/.claude/.claude.json` 或 `~/.claude.json`（工具會同時檢查兩者）。種子的選取優先順序如下：
 
@@ -367,6 +387,7 @@ bun buddy.js [選項]
 
 選項：
   --format uuid|hex    強制單一格式（預設：搜尋雙格式）
+  --hash auto|wyhash|fnv1a  雜湊函數（預設：自動偵測）
   --max <n>            最大搜尋迭代次數（預設：10,000,000）
   --count <n>          要找到的結果數量（預設：3）
 ```
@@ -374,9 +395,10 @@ bun buddy.js [選項]
 ## 注意事項
 
 - **種子格式**：搜尋預設會同時產生 UUID 和 64 字元十六進位兩種格式的種子（`--format` 可強制單一格式）。套用時，種子會同時寫入 `oauthAccount.accountUuid` 和 `userID` 兩個欄位，因此無論 Claude Code 使用哪種認證方式，夥伴都會相同。本工具產生的種子具有通用相容性。
+- **雜湊不符**：如果 `--current` 與實際的 `/buddy` 不符，表示你的 Claude Code 使用了不同的雜湊函數。工具會嘗試自動偵測，但你可以用 `--hash fnv1a`（npm/Node.js 安裝）或 `--hash wyhash`（編譯二進位安裝）強制指定。
 - **認證刷新**：Claude Code 在刷新令牌時可能會覆寫 `accountUuid`。如果你的夥伴恢復原樣，需要重新套用種子。
 - **名字和性格**：這些是 `/buddy hatch` 時由 LLM 產生的——種子只控制物種、稀有度、屬性、帽子、眼睛和閃光。
-- **版本**：基於 Claude Code 2.1.89 逆向工程。鹽值或演算法可能在未來版本中改變。
+- **版本**：基於 Claude Code 逆向工程。鹽值或演算法可能在未來版本中改變。
 
 ## 許可證
 

@@ -1,12 +1,15 @@
 #!/usr/bin/env bun
 // buddy.js — Re-roll your Claude Code /buddy companion
 //
-// Seed chain (from the 2.1.89 binary):
+// Seed chain (from Claude Code source):
 //   oauthAccount.accountUuid ?? userID ?? "anon"
-//   + "friend-2026-401" → Bun.hash (wyhash) → SplitMix32 → traits
+//   + "friend-2026-401" → hash → SplitMix32 → traits
+//
+// Hash function depends on how Claude Code was installed:
+//   Compiled binary (Bun) → Bun.hash (wyhash)
+//   npm package (Node.js) → FNV-1a
 //
 // Run without args for interactive mode, or pass --help for CLI usage.
-// Requires Bun — Claude Code uses Bun.hash, not FNV-1a.
 
 const fs = require("fs")
 const path = require("path")
@@ -79,14 +82,79 @@ const HAT_ART = {
 
 // ── Hash & PRNG ───────────────────────────────────────────────────────────
 
-function bunHash(s) {
+// Claude Code uses Bun.hash (wyhash) when running as a compiled Bun binary,
+// but falls back to FNV-1a when running as an npm package on Node.js.
+// We auto-detect which one the user's Claude Code uses.
+
+function fnv1a(s) {
+  let h = 2166136261
+  for (let i = 0; i < s.length; i++) {
+    h ^= s.charCodeAt(i)
+    h = Math.imul(h, 16777619)
+  }
+  return h >>> 0
+}
+
+function wyhash(s) {
   if (typeof Bun === "undefined") {
-    console.error("Error: This tool requires Bun (https://bun.sh).")
-    console.error("Claude Code uses Bun.hash (wyhash) — Node.js FNV-1a produces wrong results.")
-    console.error("\nInstall: curl -fsSL https://bun.sh/install | bash")
+    console.error("Error: wyhash mode requires Bun (https://bun.sh).")
+    console.error("Install: curl -fsSL https://bun.sh/install | bash")
     process.exit(1)
   }
   return Number(BigInt(Bun.hash(s)) & 0xffffffffn)
+}
+
+// Detect whether the user's Claude Code is a compiled Bun binary or Node.js
+const BINARY_MAGICS = new Set([
+  0xCFFAEDFE, // Mach-O 64-bit (little-endian header)
+  0xFEEDFACF, // Mach-O 64-bit (big-endian header)
+  0xFEEDFACE, // Mach-O 32-bit
+  0xCAFEBABE, // Mach-O universal/fat binary
+  0xBEBAFECA, // Mach-O universal/fat binary (swapped)
+  0x7F454C46, // ELF
+])
+
+function detectClaudeHashMode() {
+  const { execFileSync } = require("child_process")
+  try {
+    const claudePath = execFileSync("/usr/bin/which", ["claude"], { encoding: "utf-8" }).trim()
+    if (!claudePath) return null
+    const realPath = fs.realpathSync(claudePath)
+    const header = Buffer.alloc(4)
+    const fd = fs.openSync(realPath, "r")
+    fs.readSync(fd, header, 0, 4, 0)
+    fs.closeSync(fd)
+    const magic = header.readUInt32BE(0)
+    if (BINARY_MAGICS.has(magic)) return "wyhash"
+    return "fnv1a"
+  } catch {
+    return null // detection failed — caller decides fallback
+  }
+}
+
+let hashMode = null // set during parseArgs or auto-detected on first use
+let hashExplicit = false // true when user passed --hash explicitly
+
+let hashDetectionFailed = false
+
+function resolveHashMode() {
+  if (hashMode) return hashMode
+  const detected = detectClaudeHashMode()
+  if (detected) {
+    hashMode = detected
+  } else {
+    hashMode = "fnv1a"
+    hashDetectionFailed = true
+    console.error(`\n  ${BOLD}⚠ Could not detect Claude Code installation type.${RESET}`)
+    console.error(`  Defaulting to fnv1a (works everywhere). If results don't match /buddy,`)
+    console.error(`  re-run with ${BOLD}--hash wyhash${RESET} (for compiled binary installs).\n`)
+  }
+  return hashMode
+}
+
+function seedHash(s) {
+  resolveHashMode()
+  return hashMode === "fnv1a" ? fnv1a(s) : wyhash(s)
 }
 
 // SplitMix32 — exact match of Claude Code binary
@@ -126,7 +194,7 @@ function rollStats(rng, rarity) {
 }
 
 function rollCompanion(seed) {
-  const rng = splitmix32(bunHash(seed + SALT))
+  const rng = splitmix32(seedHash(seed + SALT))
   const rarity = rollRarity(rng)
   const species = pick(rng, SPECIES)
   const eye = pick(rng, EYES)
@@ -325,6 +393,16 @@ function parseArgs() {
         opts.format = fmt
         break
       }
+      case "--hash": {
+        const mode = args[++i]
+        if (mode !== "wyhash" && mode !== "fnv1a" && mode !== "auto") {
+          console.error(`  Unknown hash mode: ${mode}\n  Available: auto, wyhash, fnv1a`)
+          process.exit(1)
+        }
+        hashMode = mode === "auto" ? null : mode
+        hashExplicit = mode !== "auto"
+        break
+      }
       case "--all":        opts.all = true; break
       case "--help": case "-h": opts.help = true; break
       default:
@@ -362,6 +440,7 @@ ${BOLD}Filters:${RESET}
 
 ${BOLD}Options:${RESET}
   --format uuid|hex    Force single format (default: searches both)
+  --hash auto|wyhash|fnv1a  Hash function (default: auto-detect)
   --max <n>            Max iterations (default: 10,000,000)
   --count <n>          Results to find (default: 3)
 
@@ -407,7 +486,12 @@ function modeCurrent() {
     }
   }
 
+  resolveHashMode()
   console.log(`\n  ${BOLD}Config:${RESET}     ${config.path}`)
+  const hashLabel = hashExplicit ? "set via --hash"
+    : hashDetectionFailed ? "unverified — use --hash if wrong"
+    : hashMode === "fnv1a" ? "npm/Node.js Claude" : "compiled Bun Claude"
+  console.log(`  ${BOLD}Hash:${RESET}       ${hashMode} ${DIM}(${hashLabel})${RESET}`)
 
   if (data.companion) {
     console.log(`  ${BOLD}Name:${RESET}       ${data.companion.name || "(none)"}`)
@@ -497,7 +581,8 @@ function modeSearch(opts) {
   const formats = opts.format ? [opts.format] : ["uuid", "hex"]
   const generators = { uuid: randomUUID, hex: randomHex64 }
 
-  console.log(`\n  ${BOLD}buddy${RESET} — searching ${formats.join(" + ")} space`)
+  resolveHashMode()
+  console.log(`\n  ${BOLD}buddy${RESET} — searching ${formats.join(" + ")} space ${DIM}(hash: ${hashMode})${RESET}`)
   console.log(`  ${DIM}Filters: ${filters.join(", ")}${RESET}`)
   console.log(`  ${DIM}Max: ${opts.max.toLocaleString()}, find: ${opts.count}${RESET}`)
   console.log()
@@ -516,7 +601,7 @@ function modeSearch(opts) {
 
     const fmt = formats[i % formats.length]
     const seed = generators[fmt]()
-    const rng = splitmix32(bunHash(seed + SALT))
+    const rng = splitmix32(seedHash(seed + SALT))
 
     // Early rejection in PRNG consumption order
     const rarity = rollRarity(rng)
