@@ -385,10 +385,27 @@ function modeCurrent() {
   const { data } = config
   const uuid = data.oauthAccount?.accountUuid
   const uid = data.userID
+  const raw = []
+  if (uuid) raw.push({ source: "oauthAccount.accountUuid", value: uuid, format: "uuid" })
+  if (uid) raw.push({ source: "userID", value: uid, format: "hex" })
+  if (raw.length === 0) raw.push({ source: "anon", value: "anon", format: "uuid" })
+
+  // Deduplicate seeds with the same value (e.g. after --apply writes both fields)
   const seeds = []
-  if (uuid) seeds.push({ source: "oauthAccount.accountUuid", value: uuid, format: "uuid" })
-  if (uid) seeds.push({ source: "userID", value: uid, format: "hex" })
-  if (seeds.length === 0) seeds.push({ source: "anon", value: "anon", format: "uuid" })
+  const seen = new Map()
+  const uuidRe = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
+  for (const s of raw) {
+    const existing = seen.get(s.value)
+    if (existing) {
+      existing.sources.push(s.source)
+      // Re-detect format from the actual value when merging
+      existing.format = uuidRe.test(s.value) ? "uuid" : "hex"
+    } else {
+      const entry = { ...s, sources: [s.source] }
+      seen.set(s.value, entry)
+      seeds.push(entry)
+    }
+  }
 
   console.log(`\n  ${BOLD}Config:${RESET}     ${config.path}`)
 
@@ -401,10 +418,11 @@ function modeCurrent() {
   }
 
   for (const info of seeds) {
-    console.log(`\n  ${BOLD}Seed field:${RESET} ${info.source}`)
+    const sourceLabel = info.sources.join(" + ")
+    console.log(`\n  ${BOLD}Seed field:${RESET} ${sourceLabel}`)
     console.log(`  ${BOLD}Seed value:${RESET} ${info.value}`)
     console.log(`  ${BOLD}Format:${RESET}     ${info.format}`)
-    printCard(info.value, rollCompanion(info.value), { label: `from ${info.source}:` })
+    printCard(info.value, rollCompanion(info.value), { label: `from ${sourceLabel}:` })
   }
 
   if (seeds.length > 1) {

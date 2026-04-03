@@ -93,11 +93,11 @@ Example `--current` output:
   Name:       Picklevein
   Personality: A mischievous dragon who hoards semicolons and...
 
-  Seed field: oauthAccount.accountUuid
+  Seed field: oauthAccount.accountUuid + userID
   Seed value: 9ab738bf-fb82-40fb-917d-0020259c8408
   Format:     uuid
 
-  from oauthAccount.accountUuid:
+  from oauthAccount.accountUuid + userID:
   seed: 9ab738bf-fb82-40fb-917d-0020259c8408
   ┌────────────────────────────────────────┐
   │ ★★★★★ LEGENDARY         DRAGON        │
@@ -118,7 +118,7 @@ Example `--current` output:
   └────────────────────────────────────────┘
 ```
 
-If your config has both `accountUuid` and `userID`, a card is shown for each. After `--apply`, both fields have the same value so the cards will be identical.
+If your config has both `accountUuid` and `userID` with the same value (e.g. after `--apply`), a single card is shown with a combined source label. If the values differ, separate cards are shown for each.
 
 ## How it works
 
@@ -285,11 +285,11 @@ bun buddy.js --apply f853b71e-3774-4bc7-b4a8-4cc0ed266f9f
   Name:       Picklevein
   Personality: A mischievous dragon who hoards semicolons and...
 
-  Seed field: oauthAccount.accountUuid
+  Seed field: oauthAccount.accountUuid + userID
   Seed value: 9ab738bf-fb82-40fb-917d-0020259c8408
   Format:     uuid
 
-  from oauthAccount.accountUuid:
+  from oauthAccount.accountUuid + userID:
   seed: 9ab738bf-fb82-40fb-917d-0020259c8408
   ┌────────────────────────────────────────┐
   │ ★★★★★ LEGENDARY         DRAGON        │
@@ -310,7 +310,7 @@ bun buddy.js --apply f853b71e-3774-4bc7-b4a8-4cc0ed266f9f
   └────────────────────────────────────────┘
 ```
 
-如果配置中同時有 `accountUuid` 和 `userID`，會各顯示一張卡片。使用 `--apply` 後兩個欄位值相同，卡片也會一樣。
+如果配置中同時有 `accountUuid` 和 `userID` 且值相同（例如使用 `--apply` 後），只會顯示一張卡片並合併來源標籤。若兩者值不同，則各自顯示獨立的卡片。
 
 ## 運作原理
 
